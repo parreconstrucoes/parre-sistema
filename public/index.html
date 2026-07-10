@@ -690,10 +690,11 @@ async function carregarSubviewObra(sub, obra) {
           <div class="secao-body">
             ${[
               ['Valor de venda',brl(obra.valor_venda),''],
-              ['(-) Custo total obra',brl(obra.total_gasto),'td-vermelho'],
+              ['(-) Custo obra',brl(obra.total_gasto),'td-vermelho'],
               ['(-) Terreno',brl(obra.valor_terreno),'td-vermelho'],
               ['(-) Corretor',brl(corretor),'td-vermelho'],
               ['(-) Imposto venda',brl(imposto),'td-vermelho'],
+              ['(-) CNO',brl(cno_val),'td-vermelho'],
             ].map(([l,v,c])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--cinza);font-size:13px">
               <span style="color:var(--texto3)">${l}</span><span class="${c||'td-ouro'}">${v}</span>
             </div>`).join('')}
