@@ -273,12 +273,12 @@ tr:hover td { background: rgba(201,168,76,0.04); }
       <!-- DETALHE OBRA -->
       <div class="view" id="view-obra-detalhe">
         <div class="subnav">
-          <button class="subnav-btn active" onclick="subnavegar('obra-detalhe','resumo',this)">Resumo</button>
-          <button class="subnav-btn" onclick="subnavegar('obra-detalhe','mao-obra',this)">Mão de obra</button>
-          <button class="subnav-btn" onclick="subnavegar('obra-detalhe','servicos',this)">Serviços</button>
-          <button class="subnav-btn" onclick="subnavegar('obra-detalhe','materiais',this)">Materiais</button>
-          <button class="subnav-btn" onclick="subnavegar('obra-detalhe','custos-fixos',this)">Custos fixos</button>
-          <button class="subnav-btn" onclick="subnavegar('obra-detalhe','resultado',this)">Resultado</button>
+          <button class="subnav-btn active" onclick="subnavegar('obra',this,'resumo')">Resumo</button>
+          <button class="subnav-btn" onclick="subnavegar('obra',this,'mao-obra')">Mão de obra</button>
+          <button class="subnav-btn" onclick="subnavegar('obra',this,'servicos')">Serviços</button>
+          <button class="subnav-btn" onclick="subnavegar('obra',this,'materiais')">Materiais</button>
+          <button class="subnav-btn" onclick="subnavegar('obra',this,'custos-fixos')">Custos fixos</button>
+          <button class="subnav-btn" onclick="subnavegar('obra',this,'resultado')">Resultado</button>
         </div>
         <div class="subview ativa" id="subview-obra-resumo"><div class="loading"><div class="spinner"></div></div></div>
         <div class="subview" id="subview-obra-mao-obra"><div class="loading"><div class="spinner"></div></div></div>
@@ -291,10 +291,10 @@ tr:hover td { background: rgba(201,168,76,0.04); }
       <!-- PRESTAÇÃO -->
       <div class="view" id="view-prestacao">
         <div class="subnav">
-          <button class="subnav-btn active" onclick="subnavegar('prestacao','orcamentos',this)">Orçamentos</button>
-          <button class="subnav-btn" onclick="subnavegar('prestacao','despesas',this)">Despesas operacionais</button>
-          <button class="subnav-btn" onclick="subnavegar('prestacao','resumo-fin',this)">Resumo financeiro</button>
-          <button class="subnav-btn" onclick="subnavegar('prestacao','clientes',this)">Clientes</button>
+          <button class="subnav-btn active" onclick="subnavegar('prestacao',this,'orcamentos')">Orçamentos</button>
+          <button class="subnav-btn" onclick="subnavegar('prestacao',this,'despesas')">Despesas operacionais</button>
+          <button class="subnav-btn" onclick="subnavegar('prestacao',this,'resumo-fin')">Resumo financeiro</button>
+          <button class="subnav-btn" onclick="subnavegar('prestacao',this,'clientes')">Clientes</button>
         </div>
         <div class="subview ativa" id="subview-prestacao-orcamentos"></div>
         <div class="subview" id="subview-prestacao-despesas"></div>
@@ -305,8 +305,8 @@ tr:hover td { background: rgba(201,168,76,0.04); }
       <!-- FOLHA -->
       <div class="view" id="view-folha">
         <div class="subnav">
-          <button class="subnav-btn active" onclick="subnavegar('folha','prolabore',this)">Pró-labore</button>
-          <button class="subnav-btn" onclick="subnavegar('folha','darf',this)">DARF / GPS</button>
+          <button class="subnav-btn active" onclick="subnavegar('folha',this,'prolabore')">Pró-labore</button>
+          <button class="subnav-btn" onclick="subnavegar('folha',this,'darf')">DARF / GPS</button>
         </div>
         <div class="subview ativa" id="subview-folha-prolabore"></div>
         <div class="subview" id="subview-folha-darf"></div>
@@ -413,12 +413,16 @@ function navegarPara(view, btn) {
   if (view === 'relatorios') carregarRelatorios();
 }
 
-function subnavegar(view, sub, btn) {
-  document.querySelectorAll(`#view-${view} .subnav-btn`).forEach(b => b.classList.remove('active'));
-  document.querySelectorAll(`#view-${view} .subview`).forEach(s => s.classList.remove('ativa'));
-  btn?.classList.add('active');
-  document.getElementById(`subview-${view}-${sub}`)?.classList.add('ativa');
-  if ((view === 'obra' || view === 'obra-detalhe') && OBRA_ATUAL) carregarSubviewObra(sub, OBRA_ATUAL);
+function subnavegar(view, btn, sub) {
+  const container = document.getElementById('view-' + view + '-detalhe') || document.getElementById('view-' + view);
+  if (container) {
+    container.querySelectorAll('.subnav-btn').forEach(b => b.classList.remove('active'));
+    container.querySelectorAll('.subview').forEach(s => s.classList.remove('ativa'));
+  }
+  if (btn) btn.classList.add('active');
+  const subEl = document.getElementById('subview-' + view + '-' + sub);
+  if (subEl) subEl.classList.add('ativa');
+  if (view === 'obra' && OBRA_ATUAL) carregarSubviewObra(sub, OBRA_ATUAL);
   if (view === 'prestacao') carregarSubviewPrestacao(sub);
   if (view === 'folha') carregarSubviewFolha(sub);
 }
