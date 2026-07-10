@@ -183,9 +183,6 @@ def init_db():
         criado_em TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
 
-    # Importar dados da obra atual
-    _importar_dados_obra(c)
-
     conn.commit()
     conn.close()
 
