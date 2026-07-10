@@ -664,7 +664,7 @@ async function carregarSubviewObra(sub, obra) {
   if (sub === 'resultado') {
     const corretor = obra.com_corretor ? obra.valor_corretor : 0;
     const imposto = obra.imposto_venda || 0;
-    const lucro = (obra.valor_venda||0) - (obra.total_gasto||0) - corretor - imposto;
+    const lucro = (obra.valor_venda||0) - (obra.total_gasto||0) - (obra.valor_terreno||0) - corretor - imposto - (obra.cno_valor||0);
     const margem = obra.valor_venda > 0 ? lucro/obra.valor_venda*100 : 0;
     document.getElementById('subview-obra-resultado').innerHTML = `
       <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
