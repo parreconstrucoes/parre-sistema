@@ -266,7 +266,7 @@ def get_obras():
         o['total_materiais'] = conn.execute("SELECT COALESCE(SUM(total),0) FROM materiais WHERE obra_id=?", (o['id'],)).fetchone()[0]
         o['total_custos_fixos'] = conn.execute("SELECT COALESCE(SUM(valor),0) FROM custos_fixos WHERE obra_id=?", (o['id'],)).fetchone()[0]
         o['total_gasto'] = o['total_mao_obra'] + o['total_servicos'] + o['total_materiais'] + o['total_custos_fixos']
-        o['budget_restante'] = o['budget'] - o['total_gasto']
+        o['budget_restante'] = o['budget'] - o['total_gasto'] - (o['valor_terreno'] or 0)
     conn.close()
     return jsonify(obras)
 
