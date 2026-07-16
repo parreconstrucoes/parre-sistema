@@ -1338,7 +1338,7 @@ function selCat(el, cat) {
   if (campoQtd) campoQtd.style.display = cat === 'Material' ? 'block' : 'none';
 }
 
-async function salvarDespesa() {
+async async function salvarDespesa() {
   const tipo = document.getElementById('m-tipo').value;
   const qtd = tipo === 'Material' ? (+document.getElementById('m-qtd-desp')?.value || 1) : 1;
   const vunit = +document.getElementById('m-valor').value;
