@@ -1318,28 +1318,34 @@ function modalAddDespesa() {
       <input type="hidden" id="m-tipo" value="Gasolina" />
     </div>
     <div class="field"><label>Descrição</label><input id="m-desc" type="text" /></div>
+    <div id="campo-qtd-desp" style="display:none" class="field"><label>Quantidade</label><input id="m-qtd-desp" type="number" value="1" min="1" /></div>
     <div class="grid-2">
-      <div class="field"><label>Valor (R$)</label><input id="m-valor" type="number" /></div>
+      <div class="field"><label>Valor unitário (R$)</label><input id="m-valor" type="number" /></div>
       <div class="field"><label>Data</label><input id="m-data" type="date" /></div>
     </div>
     <div class="field"><label>Observação</label><input id="m-obs" type="text" /></div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
       <button class="btn-primary" onclick="salvarDespesa()">Salvar</button>
-    </div>`);
+    </div>\`);
 }
 
 function selCat(el, cat) {
   document.querySelectorAll('.cat-item').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('m-tipo').value = cat;
+  const campoQtd = document.getElementById('campo-qtd-desp');
+  if (campoQtd) campoQtd.style.display = cat === 'Material' ? 'block' : 'none';
 }
 
 async function salvarDespesa() {
+  const tipo = document.getElementById('m-tipo').value;
+  const qtd = tipo === 'Material' ? (+document.getElementById('m-qtd-desp')?.value || 1) : 1;
+  const vunit = +document.getElementById('m-valor').value;
   const data = {
-    tipo: document.getElementById('m-tipo').value,
+    tipo: tipo,
     descricao: document.getElementById('m-desc').value,
-    valor: +document.getElementById('m-valor').value,
+    valor: vunit * qtd,
     data: document.getElementById('m-data').value,
     observacao: document.getElementById('m-obs').value,
   };
