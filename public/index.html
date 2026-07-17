@@ -233,6 +233,9 @@ tr:hover td { background: rgba(201,168,76,0.04); }
     <button class="nav-btn" data-view="relatorios" data-tip="Relatórios" onclick="navegarPara('relatorios',this)">
       <i class="ti ti-chart-bar"></i>
     </button>
+    <button class="nav-btn" data-view="orcamentos-gerar" data-tip="Gerar orçamento" onclick="navegarPara('orcamentos-gerar',this)">
+      <i class="ti ti-file-plus"></i>
+    </button>
     <div class="sidebar-bottom">
       <button class="logout-btn" title="Sair" onclick="sair()"><i class="ti ti-logout"></i></button>
     </div>
@@ -302,6 +305,52 @@ tr:hover td { background: rgba(201,168,76,0.04); }
         </div>
         <div class="subview ativa" id="subview-folha-prolabore"></div>
         <div class="subview" id="subview-folha-darf"></div>
+      </div>
+
+      <!-- GERAR ORÇAMENTO -->
+      <div class="view" id="view-orcamentos-gerar">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+          <div>
+            <div class="secao">
+              <div class="secao-header"><h2>Nova proposta</h2></div>
+              <div class="secao-body">
+                <div class="grid-2">
+                  <div class="field"><label>Nº da proposta</label><input id="orc-num" type="text" placeholder="009" /></div>
+                  <div class="field"><label>Data</label><input id="orc-data" type="date" /></div>
+                </div>
+                <div class="field"><label>Cliente</label>
+                  <select id="orc-cliente-sel" onchange="selecionarClienteOrc(this.value)">
+                    <option value="">Selecione o cliente...</option>
+                  </select>
+                </div>
+                <div class="field"><label>Título do serviço</label><input id="orc-titulo" type="text" placeholder="Serviço de Pintura — Mão de Obra" /></div>
+                <div class="field"><label>Tipo de serviço</label><input id="orc-tipo" type="text" placeholder="Mão de obra — Pintura" /></div>
+                <div class="grid-2">
+                  <div class="field"><label>Material</label><input id="orc-material" type="text" value="Fornecido pelo contratante" /></div>
+                  <div class="field"><label>Valor da diária</label><input id="orc-valor-diaria" type="text" placeholder="R$ 1.200,00" /></div>
+                </div>
+                <div class="field"><label>Rótulo (ex: Valor da Diária / Valor Mensal)</label><input id="orc-label-valor" type="text" value="Valor da Diária" /></div>
+                <div class="field"><label>Validade da proposta</label><input id="orc-validade" type="text" value="15 dias" /></div>
+                <div class="field"><label>Observações (opcional)</label><textarea id="orc-obs" style="height:60px;width:100%;background:var(--preto2);border:0.5px solid var(--cinza2);border-radius:6px;padding:8px;font-size:12px;color:var(--texto);resize:none" placeholder="Informações adicionais..."></textarea></div>
+
+                <div style="font-size:11px;font-weight:500;color:var(--texto2);margin-bottom:8px">Itens do serviço</div>
+                <div id="orc-itens"></div>
+                <button class="btn-secondary" style="width:100%;margin-bottom:12px" onclick="adicionarItemOrc()">+ Adicionar item</button>
+                <button class="btn-primary" style="width:100%" onclick="gerarOrcamentoPDF()">
+                  <i class="ti ti-download" aria-hidden="true"></i> Gerar PDF
+                </button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="secao">
+              <div class="secao-header"><h2>Prévia</h2></div>
+              <div id="orc-preview" style="padding:16px;font-size:12px;color:var(--texto3)">
+                Preencha os campos ao lado para ver a prévia.
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- RELATÓRIOS -->
@@ -403,6 +452,7 @@ function navegarPara(view, btn) {
   if (view === 'prestacao') carregarPrestacao();
   if (view === 'folha') carregarFolha();
   if (view === 'relatorios') carregarRelatorios();
+  if (view === 'orcamentos-gerar') iniciarGerarOrcamento();
 }
 
 function subnavegar(view, btn, sub) {
