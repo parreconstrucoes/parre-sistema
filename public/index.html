@@ -248,19 +248,9 @@ tr:hover td { background: rgba(201,168,76,0.04); }
 
       <!-- DASHBOARD -->
       <div class="view ativa" id="view-dashboard">
-        <div class="cards-grid" id="dash-cards">
-          <div class="loading"><div class="spinner"></div></div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-          <div class="secao">
-            <div class="secao-header"><h2>Obras ativas</h2></div>
-            <div id="dash-obras"><div class="loading"><div class="spinner"></div></div></div>
-          </div>
-          <div class="secao">
-            <div class="secao-header"><h2>Últimos lançamentos</h2></div>
-            <div id="dash-lancamentos" class="empty">Carregando...</div>
-          </div>
-        </div>
+        <div id="dash-obras-sec"><div class="loading"><div class="spinner"></div></div></div>
+        <div id="dash-prestacao-sec"></div>
+        <div id="dash-financeiro-sec"></div>
       </div>
 
       <!-- OBRAS -->
@@ -429,34 +419,101 @@ function subnavegar(view, btn, sub) {
 // DASHBOARD
 async function carregarDashboard() {
   const obras = await API('/obras');
+  const orcamentos = await API('/orcamentos').catch(()=>[]);
+  const despesas = await API('/despesas_prestacao').catch(()=>[]);
+  const folha = await API('/folha_pagamento').catch(()=>[]);
+  const darfs = await API('/darfs').catch(()=>[]);
+
   const totalObras = obras.reduce((s,o) => s + (o.total_gasto||0), 0);
   const budgetRestante = obras.reduce((s,o) => s + (o.budget_restante||0), 0);
-  const fat = await API('/orcamentos').then(r => r.filter(o=>o.status==='Recebido').reduce((s,o)=>s+(o.valor||0),0)).catch(()=>0);
-  const prolabore = await API('/folha_pagamento').then(r => r.reduce((s,o)=>s+(o.pro_labore||0),0)).catch(()=>0);
+  const budgetTotal = obras.reduce((s,o) => s + (o.budget||0), 0);
+  const fatRecebido = orcamentos.filter(o=>o.status==='Recebido').reduce((s,o)=>s+(o.valor||0),0);
+  const fatExecutado = orcamentos.filter(o=>o.status==='Executado').reduce((s,o)=>s+(o.valor||0),0);
+  const fatAprovado = orcamentos.filter(o=>o.status==='Aprovado').reduce((s,o)=>s+(o.valor||0),0);
+  const fatTotal = fatRecebido + fatExecutado + fatAprovado;
+  const totalDesp = despesas.reduce((s,d)=>s+(d.valor||0),0);
+  const totalProlabore = folha.reduce((s,f)=>s+(f.pro_labore||0),0);
+  const totalInss = folha.reduce((s,f)=>s+(f.inss_valor||0),0);
+  const totalDarf = darfs.reduce((s,d)=>s+(d.total||0),0);
+  const liquidoFolha = folha.reduce((s,f)=>s+(f.liquido||0),0);
+  const resultadoPrestacao = fatRecebido - totalDesp - totalProlabore;
 
-  document.getElementById('dash-cards').innerHTML = `
-    <div class="card-metric"><label>Custo total obras</label><div class="val">${brl(totalObras)}</div><div class="sub">${obras.length} obra(s)</div></div>
-    <div class="card-metric verde"><label>Budget restante</label><div class="val">${brl(budgetRestante)}</div></div>
-    <div class="card-metric azul"><label>Faturamento serviços</label><div class="val">${brl(fat)}</div><div class="sub">Recebido</div></div>
-    <div class="card-metric vermelho"><label>Pró-labore total</label><div class="val">${brl(prolabore)}</div><div class="sub">Gustavo + Vinicius</div></div>
+  const sepStyle = 'border-top:0.5px solid var(--cinza);margin:6px 0 14px;padding-top:10px';
+  const secTitle = (icon, txt) => `<div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.8px;color:var(--texto3);margin-bottom:10px;display:flex;align-items:center;gap:6px"><i class="ti ti-${icon}" aria-hidden="true"></i>${txt}</div>`;
+
+  document.getElementById('dash-obras-sec').innerHTML = `
+    ${secTitle('building', 'Obras')}
+    <div class="cards-grid">
+      <div class="card-metric destaque"><label>Budget total</label><div class="val">${brl(budgetTotal)}</div><div class="sub">${obras.length} obra(s)</div></div>
+      <div class="card-metric vermelho"><label>Custo total</label><div class="val">${brl(totalObras)}</div><div class="sub">Sem terreno</div></div>
+      <div class="card-metric verde"><label>Budget restante</label><div class="val">${brl(budgetRestante)}</div></div>
+      <div class="card-metric"><label>Terreno</label><div class="val" style="color:var(--texto2)">${brl(obras.reduce((s,o)=>s+(o.valor_terreno||0),0))}</div><div class="sub">Imobilizado</div></div>
+    </div>
+    ${obras.map(o => {
+      const pct = o.budget > 0 ? Math.min(o.total_gasto/o.budget*100,100) : 0;
+      const cor = pct > 90 ? 'vermelho' : 'verde';
+      return `<div style="background:var(--preto3);border:0.5px solid var(--cinza);border-radius:8px;padding:10px 14px;margin-bottom:8px;cursor:pointer" onclick="abrirObra(${o.id})">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:13px;color:var(--ouro);font-weight:500">${o.nome}</span>
+          <span class="badge badge-amarelo">${o.status}</span>
+        </div>
+        <div class="prog-wrap">
+          <div class="prog-info"><span>${brl(o.total_gasto)}</span><span>${brl(o.budget)}</span></div>
+          <div class="prog-track"><div class="prog-fill ${cor}" style="width:${pct.toFixed(1)}%"></div></div>
+        </div>
+      </div>`;
+    }).join('') || '<div class="empty">Nenhuma obra cadastrada</div>'}
   `;
 
-  document.getElementById('dash-obras').innerHTML = obras.map(o => {
-    const pct_budget = o.budget > 0 ? Math.min(o.total_gasto/o.budget*100,100) : 0;
-    const cor = pct_budget > 90 ? 'vermelho' : pct_budget > 70 ? '' : 'verde';
-    return `<div style="padding:12px 14px;border-bottom:0.5px solid var(--cinza);cursor:pointer" onclick="abrirObra(${o.id})">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:13px;color:var(--ouro);font-weight:500">${o.nome}</span>
-        <span class="badge badge-amarelo">${o.status}</span>
+  document.getElementById('dash-prestacao-sec').innerHTML = `
+    <div style="${sepStyle}">
+    ${secTitle('file-invoice', 'Prestação de serviços')}
+    <div class="cards-grid">
+      <div class="card-metric azul"><label>Total faturado</label><div class="val">${brl(fatTotal)}</div><div class="sub">${orcamentos.length} propostas</div></div>
+      <div class="card-metric verde"><label>Recebido</label><div class="val">${brl(fatRecebido)}</div><div class="sub">${orcamentos.filter(o=>o.status==='Recebido').length} NFs</div></div>
+      <div class="card-metric destaque"><label>A receber</label><div class="val">${brl(fatExecutado+fatAprovado)}</div><div class="sub">Em execução/aprovado</div></div>
+      <div class="card-metric vermelho"><label>Despesas op.</label><div class="val">${brl(totalDesp)}</div><div class="sub">Gasolina, pedágio...</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px">
+      <div class="secao">
+        <div class="secao-header"><h2>Resultado prestação</h2></div>
+        <div style="padding:10px 14px">
+          ${[['Recebido bruto', brl(fatRecebido), 'verde'], ['(-) Despesas op.', brl(totalDesp), 'vermelho'], ['(-) Pró-labore', brl(totalProlabore), 'vermelho'], ['(-) Impostos', brl(totalDarf), 'vermelho']].map(([l,v,c])=>`
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:0.5px solid var(--cinza)">
+            <span style="color:var(--texto2)">${l}</span><span class="td-${c}">${v}</span>
+          </div>`).join('')}
+          <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:600;padding:8px 0 0;border-top:0.5px solid var(--ouro);margin-top:4px">
+            <span>Líquido</span><span class="${resultadoPrestacao>=0?'td-verde':'td-vermelho'}">${brl(resultadoPrestacao)}</span>
+          </div>
+        </div>
       </div>
-      <div class="prog-wrap">
-        <div class="prog-info"><span>${brl(o.total_gasto)}</span><span>${brl(o.budget)}</span></div>
-        <div class="prog-track"><div class="prog-fill ${cor}" style="width:${pct_budget.toFixed(1)}%"></div></div>
+      <div class="secao">
+        <div class="secao-header"><h2>Últimas propostas</h2></div>
+        <div>
+          ${orcamentos.slice(0,4).map(o=>{
+            const cor = o.status==='Recebido'?'badge-verde':o.status==='Executado'?'badge-roxo':'badge-azul';
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:0.5px solid var(--cinza);font-size:12px">
+              <span style="color:var(--texto2)">#${o.numero_proposta} ${(o.descricao||'').substring(0,20)}</span>
+              <span class="badge ${cor}">${o.status}</span>
+            </div>`;
+          }).join('') || '<div class="empty">Nenhuma proposta</div>'}
+        </div>
       </div>
-    </div>`;
-  }).join('') || '<div class="empty">Nenhuma obra cadastrada</div>';
+    </div>
+    </div>
+  `;
 
-  document.getElementById('dash-lancamentos').innerHTML = '<div class="empty" style="color:var(--texto3)">Acesse uma obra para ver lançamentos</div>';
+  document.getElementById('dash-financeiro-sec').innerHTML = `
+    <div style="${sepStyle}">
+    ${secTitle('users', 'Financeiro — Pró-labore')}
+    <div class="cards-grid">
+      <div class="card-metric"><label>Pró-labore bruto</label><div class="val" style="color:var(--texto2)">${brl(totalProlabore)}</div><div class="sub">Gustavo + Vinicius</div></div>
+      <div class="card-metric vermelho"><label>INSS total</label><div class="val">${brl(totalInss)}</div><div class="sub">11% sobre pró-labore</div></div>
+      <div class="card-metric verde"><label>Líquido</label><div class="val">${brl(liquidoFolha)}</div><div class="sub">Após INSS</div></div>
+      <div class="card-metric vermelho"><label>DARF / GPS</label><div class="val">${brl(totalDarf)}</div><div class="sub">Total acumulado</div></div>
+    </div>
+    </div>
+  `;
 }
 
 // OBRAS
