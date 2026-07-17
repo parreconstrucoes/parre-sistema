@@ -1021,39 +1021,121 @@ async function carregarRelatorios() {
   const orc = await API('/orcamentos');
   const desp = await API('/despesas_prestacao');
   const folha = await API('/folha_pagamento');
+  const darfs = await API('/darfs').catch(()=>[]);
+
   const totalObras = obras.reduce((s,o)=>s+(o.total_gasto||0),0);
   const totalFat = orc.filter(r=>r.status==='Recebido').reduce((s,r)=>s+(r.valor||0),0);
+  const totalAReceber = orc.filter(r=>r.status!=='Recebido').reduce((s,r)=>s+(r.valor||0),0);
   const totalDesp = desp.reduce((s,r)=>s+(r.valor||0),0);
   const totalFolha = folha.reduce((s,r)=>s+(r.pro_labore||0),0);
+  const totalDarf = darfs.reduce((s,d)=>s+(d.total||0),0);
+
+  // Alertas
+  const alertas = [];
+  obras.forEach(o => {
+    const pct = o.budget > 0 ? (o.total_gasto/o.budget*100) : 0;
+    if (pct >= 90) alertas.push({tipo:'vermelho', msg:`⚠️ ${o.nome}: budget acima de 90% (${pct.toFixed(1)}%)`});
+    else if (pct >= 70) alertas.push({tipo:'amarelo', msg:`🔶 ${o.nome}: budget acima de 70% (${pct.toFixed(1)}%)`});
+  });
+  const nfsAReceber = orc.filter(r=>r.status==='Executado');
+  if (nfsAReceber.length > 0) alertas.push({tipo:'azul', msg:`💰 ${nfsAReceber.length} NF(s) executadas aguardando recebimento: ${brl(nfsAReceber.reduce((s,r)=>s+(r.valor||0),0))}`});
+  const darfsPendentes = darfs.filter(d=>!d.pago);
+  if (darfsPendentes.length > 0) alertas.push({tipo:'vermelho', msg:`🧾 ${darfsPendentes.length} DARF(s) pendente(s): ${brl(darfsPendentes.reduce((s,d)=>s+(d.total||0),0))}`});
+
+  const barCSS = (val, max, cor) => {
+    const pct = max > 0 ? Math.min(val/max*100,100) : 0;
+    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="flex:1;height:10px;background:var(--cinza);border-radius:99px;overflow:hidden">
+        <div style="width:${pct.toFixed(1)}%;height:100%;background:${cor};border-radius:99px"></div>
+      </div>
+      <span style="font-size:11px;color:var(--texto2);min-width:80px;text-align:right">${brl(val)}</span>
+    </div>`;
+  };
+
   document.getElementById('relatorios-content').innerHTML = `
-    <div class="cards-grid">
+    ${alertas.length > 0 ? `
+    <div style="margin-bottom:16px">
+      ${alertas.map(a=>`<div style="background:${a.tipo==='vermelho'?'var(--vermelho-bg)':a.tipo==='amarelo'?'var(--amarelo-bg)':'var(--azul-bg)'};border:0.5px solid ${a.tipo==='vermelho'?'var(--vermelho)':a.tipo==='amarelo'?'var(--ouro)':'var(--azul)'};border-radius:8px;padding:10px 14px;font-size:13px;color:${a.tipo==='vermelho'?'var(--vermelho)':a.tipo==='amarelo'?'var(--ouro)':'var(--azul)'};margin-bottom:8px">${a.msg}</div>`).join('')}
+    </div>` : ''}
+
+    <div class="cards-grid" style="margin-bottom:16px">
       <div class="card-metric vermelho"><label>Total investido obras</label><div class="val">${brl(totalObras)}</div></div>
-      <div class="card-metric verde"><label>Faturamento serviços</label><div class="val">${brl(totalFat)}</div></div>
-      <div class="card-metric"><label>Despesas operacionais</label><div class="val">${brl(totalDesp)}</div></div>
-      <div class="card-metric roxo"><label>Pró-labore total</label><div class="val">${brl(totalFolha)}</div></div>
+      <div class="card-metric verde"><label>Faturamento recebido</label><div class="val">${brl(totalFat)}</div></div>
+      <div class="card-metric destaque"><label>A receber</label><div class="val">${brl(totalAReceber)}</div></div>
+      <div class="card-metric vermelho"><label>Pró-labore total</label><div class="val">${brl(totalFolha)}</div></div>
     </div>
-    ${obras.map(o=>{
-      const pct = o.budget>0?Math.min(o.total_gasto/o.budget*100,100):0;
-      const lucro = (o.valor_venda||0)-(o.total_gasto||0)-(o.valor_corretor||0)-(o.imposto_venda||0);
-      return `<div class="secao" style="margin-bottom:12px">
-        <div class="secao-header"><h2>${o.nome}</h2></div>
-        <div class="secao-body">
-          <div class="cards-grid">
-            <div class="card-metric"><label>Custo total</label><div class="val" style="font-size:15px">${brl(o.total_gasto)}</div></div>
-            <div class="card-metric"><label>Valor venda</label><div class="val" style="font-size:15px">${brl(o.valor_venda)}</div></div>
-            <div class="card-metric ${lucro>=0?'verde':'vermelho'}"><label>Resultado estimado</label><div class="val" style="font-size:15px">${brl(lucro)}</div></div>
-            <div class="card-metric verde"><label>Budget restante</label><div class="val" style="font-size:15px">${brl(o.budget_restante)}</div></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+      ${obras.map(o=>{
+        const mo = o.total_mao_obra||0;
+        const sv = o.total_servicos||0;
+        const mat = o.total_materiais||0;
+        const cf = o.total_custos_fixos||0;
+        const total = mo+sv+mat+cf;
+        const pct = o.budget>0?Math.min(o.total_gasto/o.budget*100,100):0;
+        const lucro = (o.valor_venda||0)-(o.total_gasto||0)-(o.valor_terreno||0)-(o.com_corretor?o.valor_corretor:0)-(o.imposto_venda||0);
+        const corBudget = pct>90?'var(--vermelho)':pct>70?'var(--ouro)':'var(--verde)';
+        return `<div class="secao">
+          <div class="secao-header"><h2>${o.nome}</h2><span class="badge badge-amarelo">${o.status}</span></div>
+          <div class="secao-body">
+            <div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--texto3);margin-bottom:4px">
+                <span>Budget utilizado: ${pct.toFixed(1)}%</span><span>${brl(o.total_gasto)} / ${brl(o.budget)}</span>
+              </div>
+              <div style="height:8px;background:var(--cinza);border-radius:99px;overflow:hidden">
+                <div style="width:${pct.toFixed(1)}%;height:100%;background:${corBudget};border-radius:99px"></div>
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--texto3);margin-bottom:6px;font-weight:500">Custos por categoria</div>
+            <div style="font-size:11px;color:var(--texto2);margin-bottom:2px">Mão de obra</div>
+            ${barCSS(mo,total,'var(--ouro)')}
+            <div style="font-size:11px;color:var(--texto2);margin-bottom:2px">Serviços</div>
+            ${barCSS(sv,total,'var(--azul)')}
+            <div style="font-size:11px;color:var(--texto2);margin-bottom:2px">Materiais</div>
+            ${barCSS(mat,total,'var(--verde)')}
+            <div style="font-size:11px;color:var(--texto2);margin-bottom:2px">Custos fixos</div>
+            ${barCSS(cf,total,'var(--roxo)')}
+            <div style="border-top:0.5px solid var(--cinza);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;font-size:13px">
+              <span style="color:var(--texto2)">Resultado estimado</span>
+              <span class="${lucro>=0?'td-verde':'td-vermelho'}" style="font-weight:600">${brl(lucro)}</span>
+            </div>
           </div>
-          <div class="prog-wrap">
-            <div class="prog-info"><span>Budget: ${pct.toFixed(1)}%</span><span>${brl(o.total_gasto)} / ${brl(o.budget)}</span></div>
-            <div class="prog-track"><div class="prog-fill ${pct>90?'vermelho':''}" style="width:${pct.toFixed(1)}%"></div></div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="secao">
+        <div class="secao-header"><h2>Despesas operacionais por tipo</h2></div>
+        <div class="secao-body">
+          ${['Gasolina','Pedágio','Material','Mão de obra'].map(t=>{
+            const v = desp.filter(d=>d.tipo===t).reduce((s,d)=>s+(d.valor||0),0);
+            const maxD = Math.max(...['Gasolina','Pedágio','Material','Mão de obra'].map(tt=>desp.filter(d=>d.tipo===tt).reduce((s,d)=>s+(d.valor||0),0)),1);
+            return `<div style="font-size:11px;color:var(--texto2);margin-bottom:2px">${t}</div>${barCSS(v,maxD,'var(--ouro)')}`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="secao">
+        <div class="secao-header"><h2>Histórico de NFs — Wessel</h2></div>
+        <div>
+          ${orc.map(r=>{
+            const cor = r.status==='Recebido'?'badge-verde':r.status==='Executado'?'badge-roxo':'badge-azul';
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-bottom:0.5px solid var(--cinza);font-size:12px">
+              <span style="color:var(--texto2)">#${r.numero_proposta||'—'} ${(r.descricao||'').substring(0,22)}</span>
+              <div style="display:flex;gap:6px;align-items:center">
+                <span class="td-ouro">${brl(r.valor)}</span>
+                <span class="badge ${cor}">${r.status}</span>
+              </div>
+            </div>`;
+          }).join('') || '<div class="empty">Nenhuma proposta</div>'}
+          <div style="display:flex;justify-content:space-between;padding:10px 14px;font-size:13px;font-weight:600;border-top:0.5px solid var(--ouro)">
+            <span>Total recebido</span><span class="td-verde">${brl(totalFat)}</span>
           </div>
         </div>
-      </div>`;
-    }).join('')}
+      </div>
+    </div>
   `;
 }
-
 // EXCLUIR
 async function excluirItem(tabela, id, callback) {
   if (!confirm('Confirma a exclusão?')) return;
