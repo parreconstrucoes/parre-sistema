@@ -755,7 +755,10 @@ async function carregarSubviewPrestacao(sub) {
               <td><span class="badge ${cor}" style="cursor:pointer" onclick="modalAtualizarOrcamento(${r.id})">${r.status}</span></td>
               <td>${r.numero_nf?`<span class="badge badge-amarelo">NF ${r.numero_nf}</span>`:'<span style="color:var(--texto3)">—</span>'}</td>
               <td>${r.link_pdf?`<a href="${r.link_pdf}" target="_blank" style="color:var(--azul);font-size:11px">Drive</a>`:'—'}</td>
-              <td><button class="btn-danger" onclick="excluirItem('orcamentos',${r.id},()=>carregarSubviewPrestacao('orcamentos'))">×</button></td>
+              <td style="display:flex;gap:4px">
+                <button class="btn-secondary" style="padding:4px 8px;font-size:11px" onclick="modalEditarOrcamento(${r.id})">✎</button>
+                <button class="btn-danger" onclick="excluirItem('orcamentos',${r.id},()=>carregarSubviewPrestacao('orcamentos'))">×</button>
+              </td>
             </tr>`;
           }).join('') || '<tr><td colspan="8" class="empty">Nenhum orçamento lançado</td></tr>'}
         </tbody>
@@ -1264,6 +1267,45 @@ async function salvarOrcamento() {
   if (!data.descricao) return toast('Informe a descrição', true);
   await API('/orcamentos', {method:'POST', body: data});
   fecharModal(); toast('Orçamento salvo!'); carregarSubviewPrestacao('orcamentos');
+}
+
+async function modalEditarOrcamento(id) {
+  const rows = await API('/orcamentos');
+  const r = rows.find(o=>o.id===id);
+  if (!r) return;
+  const clientes = await API('/clientes');
+  abrirModal(`<h2>Editar orçamento</h2>
+    <div class="grid-2">
+      <div class="field"><label>Nº da proposta</label><input id="m-prop" type="text" value="${r.numero_proposta||''}" /></div>
+      <div class="field"><label>Cliente</label>
+        <select id="m-cli">${clientes.map(c=>`<option value="${c.id}" ${c.id===r.cliente_id?'selected':''}>${c.nome}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="field"><label>Descrição do serviço</label><input id="m-desc" type="text" value="${r.descricao||''}" /></div>
+    <div class="grid-2">
+      <div class="field"><label>Valor (R$)</label><input id="m-valor" type="number" value="${r.valor||0}" /></div>
+      <div class="field"><label>Data aprovação</label><input id="m-data" type="date" value="${r.data_aprovacao||''}" /></div>
+    </div>
+    <div class="field"><label>Link PDF (Google Drive)</label><input id="m-pdf" type="text" value="${r.link_pdf||''}" /></div>
+    <div class="field"><label>Observação</label><input id="m-obs" type="text" value="${r.observacao||''}" /></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
+      <button class="btn-primary" onclick="salvarEdicaoOrcamento(${id})">Salvar</button>
+    </div>\`);
+}
+
+async function salvarEdicaoOrcamento(id) {
+  const data = {
+    cliente_id: +document.getElementById('m-cli').value,
+    numero_proposta: document.getElementById('m-prop').value,
+    descricao: document.getElementById('m-desc').value,
+    valor: +document.getElementById('m-valor').value,
+    data_aprovacao: document.getElementById('m-data').value,
+    link_pdf: document.getElementById('m-pdf').value,
+    observacao: document.getElementById('m-obs').value,
+  };
+  await API('/orcamentos/' + id, {method:'PUT', body: data});
+  fecharModal(); toast('Orçamento atualizado!'); carregarSubviewPrestacao('orcamentos');
 }
 
 async function modalAtualizarOrcamento(id) {
