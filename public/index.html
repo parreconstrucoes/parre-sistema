@@ -179,7 +179,9 @@ tr:hover td { background: rgba(201,168,76,0.04); }
   .cards-grid { grid-template-columns: 1fr 1fr; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .cats-grid { grid-template-columns: repeat(2,1fr); }
+  .fab { display: flex !important; }
 }
+.fab { display: none; position: fixed; bottom: 70px; right: 16px; width: 52px; height: 52px; border-radius: 50%; background: var(--ouro); color: var(--preto); border: none; font-size: 24px; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(201,168,76,0.4); z-index: 150; cursor: pointer; }
 
 .view { display: none; }
 .view.ativa { display: block; }
@@ -317,6 +319,7 @@ tr:hover td { background: rgba(201,168,76,0.04); }
 </div>
 
 <div class="toast" id="toast"></div>
+<button class="fab" onclick="modalAddDespesa()" title="Lançar despesa rápida">+</button>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
 
@@ -618,7 +621,7 @@ async function carregarSubviewObra(sub, obra) {
             <button class="btn-secondary" onclick="modalEditarObra(${obra.id})">Editar</button>
           </div>
           <div class="secao-body">
-            ${[['Condomínio',obra.condominio],['Rua',obra.rua],['Quadra',obra.quadra],['Lote',obra.lote],['CNO',obra.cno||'—'],['Status',obra.status]].map(([l,v])=>`
+            ${[['Condomínio',obra.condominio],['Rua',obra.rua],['Quadra',obra.quadra],['Lote',obra.lote],['CNO',obra.cno||'—'],['Status',obra.status],['Início',obra.data_inicio ? new Date(obra.data_inicio).toLocaleDateString('pt-BR') : '—'],['Conclusão prevista', obra.data_inicio ? (() => { const d = new Date(obra.data_inicio); d.setMonth(d.getMonth()+7); const hoje = new Date(); const diff = Math.ceil((d-hoje)/(1000*60*60*24)); return d.toLocaleDateString('pt-BR') + (diff>0 ? ' ('+diff+' dias)' : ' (concluída)'); })() : '—']].map(([l,v])=>`
               <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid var(--cinza);font-size:12px">
                 <span style="color:var(--texto3)">${l}</span><span>${v||'—'}</span>
               </div>`).join('')}
@@ -1098,6 +1101,7 @@ async function salvarNovaObra() {
     cno: document.getElementById('m-cno').value,
     budget: +document.getElementById('m-budget').value,
     valor_terreno: +document.getElementById('m-terreno').value,
+    data_inicio: document.getElementById('m-inicio').value,
   };
   if (!data.nome) return toast('Informe o nome da obra', true);
   await API('/obras', {method:'POST', body: data});
@@ -1149,6 +1153,7 @@ async function salvarEdicaoObra(id) {
     valor_venda: o.valor_venda, com_corretor: o.com_corretor,
     valor_corretor: o.valor_corretor, imposto_venda: o.imposto_venda,
     status: document.getElementById('m-status').value,
+    data_inicio: document.getElementById('m-inicio').value,
   };
   await API('/obras/' + id, {method:'PUT', body: data});
   fecharModal(); toast('Obra atualizada!');
