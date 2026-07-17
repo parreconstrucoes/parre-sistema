@@ -412,6 +412,167 @@ def serve(path):
         return send_from_directory('public', path)
     return send_from_directory('public', 'index.html')
 
+
+# ============ GERAÇÃO DE ORÇAMENTO PDF ============
+@app.route('/api/gerar-orcamento', methods=['POST'])
+@token_required
+def gerar_orcamento_pdf():
+    import tempfile, os
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+    from flask import send_file
+
+    d = request.json
+    PRETO = colors.HexColor("#1A1A1A")
+    CINZA_TXT = colors.HexColor("#7A7A7A")
+    CINZA_BOX = colors.HexColor("#F4F4F4")
+    CINZA_BORDA = colors.HexColor("#D9D9D9")
+    styles = getSampleStyleSheet()
+
+    def sty(name, **kw):
+        return ParagraphStyle(name, parent=styles["Normal"], **kw)
+
+    style_empresa = sty("Empresa", fontSize=13, leading=15, textColor=PRETO, fontName="Helvetica-Bold")
+    style_empresa_info = sty("EmpresaInfo", fontSize=8, leading=11, textColor=CINZA_TXT)
+    style_numero = sty("Numero", fontSize=9, leading=11, textColor=CINZA_TXT, alignment=TA_RIGHT)
+    style_titulo = sty("Titulo", fontSize=22, leading=26, textColor=PRETO, fontName="Helvetica-Bold", alignment=TA_CENTER)
+    style_subtitulo = sty("Subtitulo", fontSize=10, leading=13, textColor=CINZA_TXT, alignment=TA_CENTER)
+    style_secao = sty("Secao", fontSize=9.5, leading=12, textColor=PRETO, fontName="Helvetica-Bold")
+    style_label = sty("Label", fontSize=7.5, leading=10, textColor=CINZA_TXT)
+    style_valor = sty("Valor", fontSize=9.5, leading=12, textColor=PRETO, fontName="Helvetica-Bold")
+    style_th = sty("TH", fontSize=9, leading=11, textColor=colors.white, fontName="Helvetica-Bold", alignment=TA_CENTER)
+    style_th_left = sty("THLeft", fontSize=9, leading=11, textColor=colors.white, fontName="Helvetica-Bold", alignment=TA_LEFT)
+    style_td = sty("TD", fontSize=9.5, leading=12, textColor=PRETO, alignment=TA_CENTER)
+    style_td_left = sty("TDLeft", fontSize=9.5, leading=12, textColor=PRETO, fontName="Helvetica-Bold", alignment=TA_LEFT)
+    style_total_label = sty("TotalLabel", fontSize=10.5, leading=13, textColor=colors.white, fontName="Helvetica-Bold", alignment=TA_LEFT)
+    style_total_valor = sty("TotalValor", fontSize=10.5, leading=13, textColor=colors.white, fontName="Helvetica-Bold", alignment=TA_CENTER)
+    style_rodape = sty("Rodape", fontSize=9, leading=12, textColor=PRETO)
+    style_rodape_right = sty("RodapeRight", fontSize=9, leading=12, textColor=PRETO, alignment=TA_RIGHT)
+    style_rodape_right_bold = sty("RodapeRightBold", fontSize=9, leading=12, textColor=PRETO, alignment=TA_RIGHT, fontName="Helvetica-Bold")
+
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf', dir='/tmp')
+    tmp.close()
+
+    doc = SimpleDocTemplate(tmp.name, pagesize=A4, topMargin=16*mm, bottomMargin=16*mm, leftMargin=18*mm, rightMargin=18*mm)
+    el = []
+
+    # Logo como texto (P dourado em caixa preta) ou imagem se existir
+    logo_path = os.path.join(os.path.dirname(__file__), 'public', 'logo.png')
+    if os.path.exists(logo_path):
+        from reportlab.platypus import Image
+        logo_img = Image(logo_path, width=16*mm, height=16*mm)
+    else:
+        logo_img = Paragraph("<b>P</b>", sty("Logo", fontSize=14, textColor=colors.white, fontName="Helvetica-Bold", alignment=TA_CENTER))
+
+    numero = d.get('numero', '000')
+    titulo_servico = d.get('titulo_servico', '')
+    cliente_razao_social = d.get('cliente_razao_social', '')
+    cliente_cnpj = d.get('cliente_cnpj', '')
+    cliente_endereco = d.get('cliente_endereco', '')
+    tipo_servico = d.get('tipo_servico', '')
+    material = d.get('material', 'Fornecido pelo contratante')
+    valor_diaria = d.get('valor_diaria', '')
+    label_valor = d.get('label_valor', 'Valor da Diária')
+    itens = d.get('itens', [])
+    total_geral = d.get('total_geral', 'R$ 0,00')
+    data_local = d.get('data_local', 'Sorocaba')
+    validade = d.get('validade', '15 dias')
+    observacoes = d.get('observacoes', None)
+
+    info_empresa = Table(
+        [[Paragraph("PARRE CONSTRUÇÕES LTDA", style_empresa)],
+         [Paragraph("CNPJ: 65.793.940/0001-20", style_empresa_info)],
+         [Paragraph("R. Alice Manrique Gabriel, 79 – Horto Florestal – Sorocaba/SP – CEP 18.074-752", style_empresa_info)],
+         [Paragraph("(15) 99186-2039 | parreconstrucoes@gmail.com", style_empresa_info)]],
+        colWidths=[doc.width - 22*mm],
+    )
+    info_empresa.setStyle(TableStyle([("LEFTPADDING",(0,0),(-1,-1),0),("TOPPADDING",(0,0),(-1,-1),0),("BOTTOMPADDING",(0,0),(-1,-1),1)]))
+
+    cab = Table([[logo_img, info_empresa, Paragraph(f"Nº {numero}", style_numero)]],
+        colWidths=[18*mm, doc.width - 18*mm - 22*mm, 22*mm])
+    cab.setStyle(TableStyle([("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),0)]))
+    el.append(cab)
+    el.append(Spacer(1, 8))
+
+    def linha_sep():
+        t = Table([[""]], colWidths=[doc.width], rowHeights=[1])
+        t.setStyle(TableStyle([("LINEBELOW",(0,0),(-1,-1),0.75,CINZA_BORDA)]))
+        return t
+
+    el.append(linha_sep())
+    el.append(Spacer(1, 14))
+    el.append(Paragraph("PROPOSTA COMERCIAL", style_titulo))
+    el.append(Paragraph(titulo_servico, style_subtitulo))
+    el.append(Spacer(1, 6))
+    el.append(linha_sep())
+    el.append(Spacer(1, 14))
+
+    el.append(Paragraph("CONTRATANTE", style_secao))
+    el.append(Spacer(1, 5))
+    box1 = Table(
+        [[Paragraph("Razão Social", style_label), Paragraph("CNPJ", style_label)],
+         [Paragraph(cliente_razao_social, style_valor), Paragraph(cliente_cnpj, style_valor)]],
+        colWidths=[doc.width*0.65, doc.width*0.35])
+    box1.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),CINZA_BOX),("LEFTPADDING",(0,0),(-1,-1),8),("RIGHTPADDING",(0,0),(-1,-1),8),("TOPPADDING",(0,0),(-1,0),6),("BOTTOMPADDING",(0,1),(-1,1),6),("LINEBELOW",(0,0),(-1,0),0.5,CINZA_BORDA)]))
+    el.append(box1)
+    el.append(Spacer(1, 1))
+    box2 = Table([[Paragraph("Endereço", style_label)],[Paragraph(cliente_endereco, style_valor)]], colWidths=[doc.width])
+    box2.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),CINZA_BOX),("LEFTPADDING",(0,0),(-1,-1),8),("RIGHTPADDING",(0,0),(-1,-1),8),("TOPPADDING",(0,0),(0,0),6),("BOTTOMPADDING",(0,1),(0,1),6),("LINEBELOW",(0,0),(-1,0),0.5,CINZA_BORDA)]))
+    el.append(box2)
+    el.append(Spacer(1, 14))
+
+    el.append(Paragraph("CONDIÇÕES DO SERVIÇO", style_secao))
+    el.append(Spacer(1, 5))
+    box3 = Table(
+        [[Paragraph("Tipo de Serviço", style_label), Paragraph("Material", style_label), Paragraph(label_valor, style_label)],
+         [Paragraph(tipo_servico, style_valor), Paragraph(material, style_valor), Paragraph(valor_diaria, style_valor)]],
+        colWidths=[doc.width/3]*3)
+    box3.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),CINZA_BOX),("LEFTPADDING",(0,0),(-1,-1),8),("RIGHTPADDING",(0,0),(-1,-1),8),("TOPPADDING",(0,0),(-1,0),6),("BOTTOMPADDING",(0,1),(-1,1),6),("LINEBELOW",(0,0),(-1,0),0.5,CINZA_BORDA)]))
+    el.append(box3)
+    el.append(Spacer(1, 14))
+
+    el.append(Paragraph("DETALHAMENTO DO SERVIÇO", style_secao))
+    el.append(Spacer(1, 6))
+    cab_tab = [Paragraph("Descrição do Serviço", style_th_left), Paragraph("Data", style_th), Paragraph("Qtd", style_th), Paragraph("Un", style_th), Paragraph("Valor (R$)", style_th)]
+    linhas_tab = [cab_tab]
+    for item in itens:
+        linhas_tab.append([Paragraph(item.get('descricao',''), style_td_left), Paragraph(item.get('data',''), style_td), Paragraph(str(item.get('qtd',1)), style_td), Paragraph(item.get('unidade','Diária'), style_td), Paragraph(item.get('valor',''), style_td)])
+    n_itens = len(itens)
+    linhas_tab.append([Paragraph("TOTAL GERAL", style_total_label), "", "", "", Paragraph(total_geral, style_total_valor)])
+    tabela = Table(linhas_tab, colWidths=[doc.width*0.38, doc.width*0.27, doc.width*0.10, doc.width*0.10, doc.width*0.15])
+    est = [("BACKGROUND",(0,0),(-1,0),PRETO),("SPAN",(0,n_itens+1),(3,n_itens+1)),("BACKGROUND",(0,n_itens+1),(-1,n_itens+1),PRETO),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("LEFTPADDING",(0,0),(-1,-1),8),("RIGHTPADDING",(0,0),(-1,-1),8),("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7),("LINEBELOW",(0,0),(-1,n_itens),0.5,CINZA_BORDA)]
+    for i in range(1, n_itens+1):
+        if i % 2 == 0:
+            est.append(("BACKGROUND",(0,i),(-1,i),CINZA_BOX))
+    tabela.setStyle(TableStyle(est))
+    el.append(tabela)
+    el.append(Spacer(1, 14))
+
+    if observacoes:
+        el.append(Paragraph("OBSERVAÇÕES", style_secao))
+        el.append(Spacer(1, 5))
+        box_obs = Table([[Paragraph(observacoes, style_valor)]], colWidths=[doc.width])
+        box_obs.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),CINZA_BOX),("LEFTPADDING",(0,0),(-1,-1),8),("RIGHTPADDING",(0,0),(-1,-1),8),("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7)]))
+        el.append(box_obs)
+        el.append(Spacer(1, 14))
+    else:
+        el.append(Spacer(1, 12))
+
+    rodape = Table(
+        [[Paragraph(data_local, style_rodape), Paragraph("Parre Construções Ltda.", style_rodape_right_bold)],
+         [Paragraph(f"Validade desta proposta: {validade}", style_valor), Paragraph("CNPJ: 65.793.940/0001-20", style_rodape_right)]],
+        colWidths=[doc.width/2, doc.width/2])
+    rodape.setStyle(TableStyle([("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),0),("TOPPADDING",(0,0),(-1,-1),2),("LINEABOVE",(0,0),(-1,0),0.5,CINZA_BORDA)]))
+    el.append(rodape)
+    doc.build(el)
+
+    return send_file(tmp.name, as_attachment=True, download_name=f"Proposta_{numero}.pdf", mimetype='application/pdf')
+
+
 if __name__ == '__main__':
     init_db()
     port = int(os.environ.get('PORT', 8080))
