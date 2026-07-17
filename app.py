@@ -3,7 +3,7 @@ from flask_cors import CORS
 import sqlite3, hashlib, jwt, os, datetime, json
 
 app = Flask(__name__, static_folder='public', static_url_path='')
-CORS(app)
+CORS(app, resources={r'/api/*': {'origins': '*'}}, supports_credentials=True)
 SECRET = 'parre_secret_2026'
 DB_PATH = os.environ.get('DB_PATH', 'db/parre.db')
 
