@@ -309,12 +309,12 @@ tr:hover td { background: rgba(201,168,76,0.04); }
 
       <!-- GERAR ORÇAMENTO -->
       <div class="view" id="view-orcamentos-gerar">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;align-items:start">
           <div>
             <div class="secao">
               <div class="secao-header"><h2>Nova proposta</h2></div>
               <div class="secao-body">
-                <div class="grid-2">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                   <div class="field"><label>Nº da proposta</label><input id="orc-num" type="text" placeholder="009" /></div>
                   <div class="field"><label>Data</label><input id="orc-data" type="date" /></div>
                 </div>
