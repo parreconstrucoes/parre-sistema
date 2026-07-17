@@ -44,8 +44,14 @@ def init_db():
         valor_corretor REAL DEFAULT 0,
         imposto_venda REAL DEFAULT 0,
         status TEXT DEFAULT 'Em andamento',
+        data_inicio TEXT,
         criado_em TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
+    # Adicionar colunas se nao existirem (migration)
+    try:
+        c.execute("ALTER TABLE obras ADD COLUMN data_inicio TEXT")
+    except:
+        pass
 
     # Inserir obra atual
     c.execute("INSERT OR IGNORE INTO obras (id, nome, condominio, rua, quadra, lote, budget, valor_terreno, valor_venda, status) VALUES (1, 'Horto Florestal Villagio', 'Horto Florestal Villagio', 'Rua Alice Manrique Gabriel', 'A4', '09', 600000, 180000, 780000, 'Em andamento')")
@@ -272,11 +278,12 @@ def get_obras():
 def create_obra():
     d = request.json
     conn = get_db()
-    cur = conn.execute("""INSERT INTO obras (nome,condominio,rua,quadra,lote,cno,budget,valor_terreno,valor_venda,com_corretor,valor_corretor,imposto_venda,status)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+    cur = conn.execute("""INSERT INTO obras (nome,condominio,rua,quadra,lote,cno,budget,valor_terreno,valor_venda,com_corretor,valor_corretor,imposto_venda,status,data_inicio)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (d['nome'],d.get('condominio',''),d.get('rua',''),d.get('quadra',''),d.get('lote',''),
          d.get('cno',''),d.get('budget',0),d.get('valor_terreno',0),d.get('valor_venda',0),
-         d.get('com_corretor',0),d.get('valor_corretor',0),d.get('imposto_venda',0),'Em andamento'))
+         d.get('com_corretor',0),d.get('valor_corretor',0),d.get('imposto_venda',0),'Em andamento',
+         d.get('data_inicio','')))
     conn.commit()
     obra = row_to_dict(conn.execute("SELECT * FROM obras WHERE id=?", (cur.lastrowid,)).fetchone())
     conn.close()
@@ -288,10 +295,11 @@ def update_obra(id):
     d = request.json
     conn = get_db()
     conn.execute("""UPDATE obras SET nome=?,condominio=?,rua=?,quadra=?,lote=?,cno=?,budget=?,
-        valor_terreno=?,valor_venda=?,com_corretor=?,valor_corretor=?,imposto_venda=?,status=? WHERE id=?""",
+        valor_terreno=?,valor_venda=?,com_corretor=?,valor_corretor=?,imposto_venda=?,status=?,data_inicio=? WHERE id=?""",
         (d['nome'],d.get('condominio',''),d.get('rua',''),d.get('quadra',''),d.get('lote',''),
          d.get('cno',''),d.get('budget',0),d.get('valor_terreno',0),d.get('valor_venda',0),
-         d.get('com_corretor',0),d.get('valor_corretor',0),d.get('imposto_venda',0),d.get('status','Em andamento'),id))
+         d.get('com_corretor',0),d.get('valor_corretor',0),d.get('imposto_venda',0),d.get('status','Em andamento'),
+         d.get('data_inicio',''),id))
     conn.commit()
     conn.close()
     return jsonify({'ok': True})
