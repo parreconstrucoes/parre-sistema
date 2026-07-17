@@ -478,10 +478,18 @@ async function carregarDashboard() {
       <div class="secao">
         <div class="secao-header"><h2>Resultado prestação</h2></div>
         <div style="padding:10px 14px">
-          ${[['Recebido bruto', brl(fatRecebido), 'verde'], ['(-) Despesas op.', brl(totalDesp), 'vermelho'], ['(-) Pró-labore', brl(totalProlabore), 'vermelho'], ['(-) Impostos', brl(totalDarf), 'vermelho']].map(([l,v,c])=>`
           <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:0.5px solid var(--cinza)">
-            <span style="color:var(--texto2)">${l}</span><span class="td-${c}">${v}</span>
-          </div>`).join('')}
+            <span style="color:var(--texto2)">Recebido bruto</span><span class="td-verde">${brl(fatRecebido)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:0.5px solid var(--cinza)">
+            <span style="color:var(--texto2)">(-) Despesas op.</span><span class="td-vermelho">${brl(totalDesp)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:0.5px solid var(--cinza)">
+            <span style="color:var(--texto2)">(-) Pró-labore</span><span class="td-vermelho">${brl(totalProlabore)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:0.5px solid var(--cinza)">
+            <span style="color:var(--texto2)">(-) Impostos</span><span class="td-vermelho">${brl(totalDarf)}</span>
+          </div>
           <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:600;padding:8px 0 0;border-top:0.5px solid var(--ouro);margin-top:4px">
             <span>Líquido</span><span class="${resultadoPrestacao>=0?'td-verde':'td-vermelho'}">${brl(resultadoPrestacao)}</span>
           </div>
