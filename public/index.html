@@ -1693,6 +1693,183 @@ async function salvarDarf() {
   fecharModal(); toast('DARF salvo!'); carregarSubviewFolha('darf');
 }
 
+// GERAR ORÇAMENTO
+let orcClientes = [];
+let orcClienteSel = null;
+let orcItemCount = 0;
+
+async function iniciarGerarOrcamento() {
+  orcClientes = await API('/clientes');
+  const sel = document.getElementById('orc-cliente-sel');
+  if (sel) {
+    sel.innerHTML = '<option value="">Selecione o cliente...</option>' +
+      orcClientes.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
+  }
+  const hoje = new Date().toISOString().split('T')[0];
+  const campoData = document.getElementById('orc-data');
+  if (campoData) campoData.value = hoje;
+  const itensDiv = document.getElementById('orc-itens');
+  if (itensDiv && itensDiv.children.length === 0) adicionarItemOrc();
+}
+
+function selecionarClienteOrc(val) {
+  orcClienteSel = orcClientes.find(c=>c.id===+val) || null;
+  atualizarPreviewOrc();
+}
+
+function adicionarItemOrc() {
+  orcItemCount++;
+  const n = orcItemCount;
+  const div = document.createElement('div');
+  div.id = `orc-item-${n}`;
+  div.style.cssText = 'background:var(--preto3);border:0.5px solid var(--cinza);border-radius:8px;padding:10px;margin-bottom:8px';
+  div.innerHTML = `
+    <div class="field"><label>Descrição</label><input id="item-desc-${n}" type="text" placeholder="Pintura, reparos corredor" oninput="atualizarPreviewOrc()" /></div>
+    <div class="field"><label>Data do serviço</label><input id="item-data-${n}" type="text" placeholder="11/07/2026 — Sábado" oninput="atualizarPreviewOrc()" /></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end">
+      <div class="field"><label>Qtd</label><input id="item-qtd-${n}" type="number" value="1" oninput="atualizarPreviewOrc()" /></div>
+      <div class="field"><label>Unidade</label><input id="item-un-${n}" type="text" value="Diária" oninput="atualizarPreviewOrc()" /></div>
+      <div class="field"><label>Valor (R$)</label><input id="item-valor-${n}" type="text" placeholder="R$ 1.200,00" oninput="atualizarPreviewOrc()" /></div>
+      <button class="btn-danger" onclick="document.getElementById('orc-item-${n}').remove();atualizarPreviewOrc()" style="margin-bottom:10px">×</button>
+    </div>`;
+  document.getElementById('orc-itens').appendChild(div);
+  atualizarPreviewOrc();
+}
+
+function getItensOrc() {
+  const itens = [];
+  document.querySelectorAll('[id^="orc-item-"]').forEach(div => {
+    const n = div.id.replace('orc-item-','');
+    const desc = document.getElementById(`item-desc-${n}`)?.value || '';
+    if (!desc) return;
+    itens.push({
+      descricao: desc,
+      data: document.getElementById(`item-data-${n}`)?.value || '',
+      qtd: document.getElementById(`item-qtd-${n}`)?.value || '1',
+      unidade: document.getElementById(`item-un-${n}`)?.value || 'Diária',
+      valor: document.getElementById(`item-valor-${n}`)?.value || ''
+    });
+  });
+  return itens;
+}
+
+function calcTotalOrc(itens) {
+  return itens.reduce((s,it) => {
+    const v = parseFloat(String(it.valor).replace(/[^0-9,.-]/g,'').replace(',','.')) || 0;
+    return s + v * (parseFloat(it.qtd) || 1);
+  }, 0);
+}
+
+function atualizarPreviewOrc() {
+  const num = document.getElementById('orc-num')?.value || '000';
+  const titulo = document.getElementById('orc-titulo')?.value || '';
+  const tipo = document.getElementById('orc-tipo')?.value || '';
+  const material = document.getElementById('orc-material')?.value || '';
+  const valorDiaria = document.getElementById('orc-valor-diaria')?.value || '';
+  const labelValor = document.getElementById('orc-label-valor')?.value || 'Valor da Diária';
+  const validade = document.getElementById('orc-validade')?.value || '15 dias';
+  const itens = getItensOrc();
+  const total = calcTotalOrc(itens);
+  const totalStr = total.toLocaleString('pt-BR', {style:'currency',currency:'BRL'});
+  const cli = orcClienteSel;
+  const prev = document.getElementById('orc-preview');
+  if (!prev) return;
+
+  prev.innerHTML = `<div style="background:#fff;border:1px solid #D9D9D9;border-radius:6px;font-family:Arial,sans-serif;color:#1A1A1A;font-size:11px">
+    <div style="padding:12px 14px;border-bottom:1px solid #D9D9D9;display:flex;justify-content:space-between;align-items:flex-start">
+      <div style="display:flex;gap:8px">
+        <div style="width:32px;height:32px;background:#1A1A1A;border-radius:3px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#C9A84C;font-size:12px;font-weight:700">P</span></div>
+        <div><div style="font-size:12px;font-weight:700">PARRE CONSTRUÇÕES LTDA</div><div style="font-size:9px;color:#7A7A7A;line-height:1.5">CNPJ: 65.793.940/0001-20<br>R. Alice Manrique Gabriel, 79 – Sorocaba/SP<br>(15) 99186-2039 | parreconstrucoes@gmail.com</div></div>
+      </div>
+      <div style="font-size:10px;color:#7A7A7A">Nº ${num}</div>
+    </div>
+    <div style="text-align:center;padding:12px;border-bottom:1px solid #D9D9D9">
+      <div style="font-size:16px;font-weight:700">PROPOSTA COMERCIAL</div>
+      <div style="font-size:10px;color:#7A7A7A;margin-top:2px">${titulo}</div>
+    </div>
+    <div style="padding:10px 14px;border-bottom:1px solid #D9D9D9;background:#F4F4F4">
+      <div style="font-size:8px;font-weight:700;text-transform:uppercase;margin-bottom:6px">Contratante</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px">
+        <div><div style="font-size:8px;color:#7A7A7A">Razão Social</div><div style="font-size:10px;font-weight:700">${cli?.nome||'—'}</div></div>
+        <div><div style="font-size:8px;color:#7A7A7A">CNPJ</div><div style="font-size:10px;font-weight:700">${cli?.cnpj_cpf||'—'}</div></div>
+      </div>
+      <div><div style="font-size:8px;color:#7A7A7A">Endereço</div><div style="font-size:10px;font-weight:700">${cli?.contato||'Rua São Marcos – Araçariguama/SP'}</div></div>
+    </div>
+    <div style="padding:10px 14px;border-bottom:1px solid #D9D9D9;background:#F4F4F4">
+      <div style="font-size:8px;font-weight:700;text-transform:uppercase;margin-bottom:6px">Condições do serviço</div>
+      <table style="width:100%;border-collapse:collapse;font-size:9px">
+        <tr style="background:#1A1A1A"><th style="color:#fff;padding:5px 6px;text-align:left">Tipo de Serviço</th><th style="color:#fff;padding:5px 6px;text-align:left">Material</th><th style="color:#fff;padding:5px 6px;text-align:left">${labelValor}</th></tr>
+        <tr><td style="padding:5px 6px;font-weight:700">${tipo}</td><td style="padding:5px 6px;font-weight:700">${material}</td><td style="padding:5px 6px;font-weight:700">${valorDiaria}</td></tr>
+      </table>
+    </div>
+    <div style="padding:10px 14px;border-bottom:1px solid #D9D9D9;background:#fff">
+      <div style="font-size:8px;font-weight:700;text-transform:uppercase;margin-bottom:6px">Detalhamento do serviço</div>
+      <table style="width:100%;border-collapse:collapse;font-size:9px">
+        <tr style="background:#1A1A1A">
+          <th style="color:#fff;padding:5px 6px;text-align:left">Descrição</th>
+          <th style="color:#fff;padding:5px 6px;text-align:center">Data</th>
+          <th style="color:#fff;padding:5px 6px;text-align:center">Qtd</th>
+          <th style="color:#fff;padding:5px 6px;text-align:center">Un</th>
+          <th style="color:#fff;padding:5px 6px;text-align:center">Valor</th>
+        </tr>
+        ${itens.map((it,i)=>`<tr style="background:${i%2===1?'#F4F4F4':'#fff'}">
+          <td style="padding:5px 6px;font-weight:700">${it.descricao}</td>
+          <td style="padding:5px 6px;text-align:center">${it.data}</td>
+          <td style="padding:5px 6px;text-align:center">${it.qtd}</td>
+          <td style="padding:5px 6px;text-align:center">${it.unidade}</td>
+          <td style="padding:5px 6px;text-align:center">${it.valor}</td>
+        </tr>`).join('')}
+        <tr style="background:#1A1A1A"><td colspan="4" style="color:#fff;padding:6px;font-weight:700">TOTAL GERAL</td><td style="color:#fff;padding:6px;text-align:center;font-weight:700">${totalStr}</td></tr>
+      </table>
+    </div>
+    <div style="padding:10px 14px;display:flex;justify-content:space-between;font-size:9px;color:#7A7A7A">
+      <div>Sorocaba, ${new Date().toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'})}<br><strong style="color:#1A1A1A">Validade desta proposta: ${validade}</strong></div>
+      <div style="text-align:right"><strong style="color:#1A1A1A">Parre Construções Ltda.</strong><br>CNPJ: 65.793.940/0001-20</div>
+    </div>
+  </div>`;
+}
+
+async function gerarOrcamentoPDF() {
+  const num = document.getElementById('orc-num')?.value;
+  if (!num) return toast('Informe o número da proposta', true);
+  if (!orcClienteSel) return toast('Selecione o cliente', true);
+  const itens = getItensOrc();
+  if (itens.length === 0) return toast('Adicione pelo menos um item', true);
+  const total = calcTotalOrc(itens);
+  const totalStr = total.toLocaleString('pt-BR', {style:'currency',currency:'BRL'});
+  const dataVal = document.getElementById('orc-data')?.value || '';
+  const dataObj = dataVal ? new Date(dataVal+'T12:00:00') : new Date();
+  const dataLocal = 'Sorocaba, ' + dataObj.toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'});
+  const payload = {
+    numero: num,
+    titulo_servico: document.getElementById('orc-titulo')?.value || '',
+    cliente_razao_social: orcClienteSel.nome,
+    cliente_cnpj: orcClienteSel.cnpj_cpf || '',
+    cliente_endereco: orcClienteSel.contato || 'Rua São Marcos – Araçariguama/SP – CEP 18.147-000',
+    tipo_servico: document.getElementById('orc-tipo')?.value || '',
+    material: document.getElementById('orc-material')?.value || '',
+    valor_diaria: document.getElementById('orc-valor-diaria')?.value || '',
+    label_valor: document.getElementById('orc-label-valor')?.value || 'Valor da Diária',
+    validade: document.getElementById('orc-validade')?.value || '15 dias',
+    observacoes: document.getElementById('orc-obs')?.value || null,
+    itens, total_geral: totalStr, data_local: dataLocal,
+  };
+  toast('Gerando PDF...');
+  try {
+    const resp = await fetch('/api/gerar-orcamento', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN},
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `Proposta_${num}.pdf`; a.click();
+    URL.revokeObjectURL(url);
+    toast('PDF gerado com sucesso!');
+  } catch(e) { toast('Erro: ' + e.message, true); }
+}
+
 // INIT
 window.onload = () => {
   if (TOKEN) {
