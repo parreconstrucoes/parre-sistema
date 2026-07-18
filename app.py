@@ -478,7 +478,17 @@ def gerar_orcamento_pdf():
     valor_diaria = d.get('valor_diaria', '')
     label_valor = d.get('label_valor', 'Valor da Diária')
     itens = d.get('itens', [])
-    total_geral = d.get('total_geral', 'R$ 0,00')
+    total_geral_raw = d.get('total_geral', 'R$ 0,00')
+    # Recalcular total no backend para garantir
+    total_calc = 0.0
+    for item in d.get('itens', []):
+        v_raw = str(item.get('valor','0')).replace('R$','').replace('.','').replace(',','.').strip()
+        try:
+            v_num = float(v_raw)
+        except:
+            v_num = 0.0
+        total_calc += v_num * float(item.get('qtd', 1))
+    total_geral = f"R$ {total_calc:,.2f}".replace(',','X').replace('.',',').replace('X','.')
     data_local = d.get('data_local', 'Sorocaba')
     validade = d.get('validade', '15 dias')
     observacoes = d.get('observacoes', None)
@@ -540,7 +550,16 @@ def gerar_orcamento_pdf():
     cab_tab = [Paragraph("Descrição do Serviço", style_th_left), Paragraph("Data", style_th), Paragraph("Qtd", style_th), Paragraph("Un", style_th), Paragraph("Valor (R$)", style_th)]
     linhas_tab = [cab_tab]
     for item in itens:
-        linhas_tab.append([Paragraph(item.get('descricao',''), style_td_left), Paragraph(item.get('data',''), style_td), Paragraph(str(item.get('qtd',1)), style_td), Paragraph(item.get('unidade','Diária'), style_td), Paragraph(item.get('valor',''), style_td)])
+        # Calcular valor formatado
+        v_raw = str(item.get('valor','0')).replace('R$','').replace('.','').replace(',','.').strip()
+        try:
+            v_num = float(v_raw)
+        except:
+            v_num = 0.0
+        qtd_num = float(item.get('qtd', 1))
+        v_total_item = v_num * qtd_num
+        v_fmt = f"R$ {v_total_item:,.2f}".replace(',','X').replace('.',',').replace('X','.')
+        linhas_tab.append([Paragraph(item.get('descricao',''), style_td_left), Paragraph(item.get('data',''), style_td), Paragraph(str(item.get('qtd',1)), style_td), Paragraph(item.get('unidade','Diária'), style_td), Paragraph(v_fmt, style_td)])
     n_itens = len(itens)
     linhas_tab.append([Paragraph("TOTAL GERAL", style_total_label), "", "", "", Paragraph(total_geral, style_total_valor)])
     tabela = Table(linhas_tab, colWidths=[doc.width*0.38, doc.width*0.27, doc.width*0.10, doc.width*0.10, doc.width*0.15])
