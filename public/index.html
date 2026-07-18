@@ -1738,16 +1738,22 @@ function adicionarItemOrc() {
 
 function getItensOrc() {
   const itens = [];
-  document.querySelectorAll('[id^="orc-item-"]').forEach(div => {
+  const divs = document.querySelectorAll('[id^="orc-item-"]');
+  divs.forEach(div => {
     const n = div.id.replace('orc-item-','');
-    const desc = document.getElementById(`item-desc-${n}`)?.value || '';
-    if (!desc) return;
+    const descEl = div.querySelector(`[id="item-desc-${n}"]`) || document.getElementById(`item-desc-${n}`);
+    const dataEl = div.querySelector(`[id="item-data-${n}"]`) || document.getElementById(`item-data-${n}`);
+    const qtdEl = div.querySelector(`[id="item-qtd-${n}"]`) || document.getElementById(`item-qtd-${n}`);
+    const unEl = div.querySelector(`[id="item-un-${n}"]`) || document.getElementById(`item-un-${n}`);
+    const valorEl = div.querySelector(`[id="item-valor-${n}"]`) || document.getElementById(`item-valor-${n}`);
+    const desc = descEl?.value || '';
+    if (!desc && !valorEl?.value) return;
     itens.push({
-      descricao: desc,
-      data: document.getElementById(`item-data-${n}`)?.value || '',
-      qtd: document.getElementById(`item-qtd-${n}`)?.value || '1',
-      unidade: document.getElementById(`item-un-${n}`)?.value || 'Diária',
-      valor: document.getElementById(`item-valor-${n}`)?.value || ''
+      descricao: desc || '—',
+      data: dataEl?.value || '',
+      qtd: qtdEl?.value || '1',
+      unidade: unEl?.value || 'Diária',
+      valor: valorEl?.value || ''
     });
   });
   return itens;
