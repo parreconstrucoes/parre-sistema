@@ -475,20 +475,28 @@ def gerar_orcamento_pdf():
     cliente_endereco = d.get('cliente_endereco', '')
     tipo_servico = d.get('tipo_servico', '')
     material = d.get('material', 'Fornecido pelo contratante')
-    valor_diaria = d.get('valor_diaria', '')
+    valor_diaria_raw = d.get('valor_diaria', '')
+    def _pv(v):
+        v = str(v).strip().replace('R$','').replace('RS','').replace(' ','')
+        v = v.replace('.','').replace(',','.') if (',' in v and '.' in v) else v.replace(',','.')
+        try: return float(v)
+        except: return 0.0
+    _vd = _pv(valor_diaria_raw)
+    _lbl = d.get('label_valor','')
+    _sfx = ' / mes' if 'mensal' in _lbl.lower() or 'mes' in _lbl.lower() else ' / dia'
+    valor_diaria = ('R$ {:,.2f}'.format(_vd).replace(',','X').replace('.',',').replace('X','.') + _sfx) if _vd > 0 else valor_diaria_raw
     label_valor = d.get('label_valor', 'Valor da Diária')
     itens = d.get('itens', [])
     total_geral_raw = d.get('total_geral', 'R$ 0,00')
     # Recalcular total no backend para garantir
     total_calc = 0.0
     for item in d.get('itens', []):
-        v_raw = str(item.get('valor','0')).replace('R$','').replace('.','').replace(',','.').strip()
-        try:
-            v_num = float(v_raw)
-        except:
-            v_num = 0.0
-        total_calc += v_num * float(item.get('qtd', 1))
-    total_geral = f"R$ {total_calc:,.2f}".replace(',','X').replace('.',',').replace('X','.')
+        _vv2 = str(item.get('valor','0')).strip().replace('R$','').replace('RS','').replace(' ','')
+        _vv2 = _vv2.replace('.','').replace(',','.') if (',' in _vv2 and '.' in _vv2) else _vv2.replace(',','.')
+        try: _vn2 = float(_vv2)
+        except: _vn2 = 0.0
+        total_calc += _vn2 * float(item.get('qtd', 1) or 1)
+    total_geral = 'R$ {:,.2f}'.format(total_calc).replace(',','X').replace('.',',').replace('X','.')
     data_local = d.get('data_local', 'Sorocaba')
     validade = d.get('validade', '15 dias')
     observacoes = d.get('observacoes', None)
@@ -551,14 +559,13 @@ def gerar_orcamento_pdf():
     linhas_tab = [cab_tab]
     for item in itens:
         # Calcular valor formatado
-        v_raw = str(item.get('valor','0')).replace('R$','').replace('.','').replace(',','.').strip()
-        try:
-            v_num = float(v_raw)
-        except:
-            v_num = 0.0
-        qtd_num = float(item.get('qtd', 1))
+        _vv = str(item.get('valor','0')).strip().replace('R$','').replace('RS','').replace(' ','')
+        _vv = _vv.replace('.','').replace(',','.') if (',' in _vv and '.' in _vv) else _vv.replace(',','.')
+        try: v_num = float(_vv)
+        except: v_num = 0.0
+        qtd_num = float(item.get('qtd', 1) or 1)
         v_total_item = v_num * qtd_num
-        v_fmt = f"R$ {v_total_item:,.2f}".replace(',','X').replace('.',',').replace('X','.')
+        v_fmt = 'R$ {:,.2f}'.format(v_total_item).replace(',','X').replace('.',',').replace('X','.')
         linhas_tab.append([Paragraph(item.get('descricao',''), style_td_left), Paragraph(item.get('data',''), style_td), Paragraph(str(item.get('qtd',1)), style_td), Paragraph(item.get('unidade','Diária'), style_td), Paragraph(v_fmt, style_td)])
     n_itens = len(itens)
     linhas_tab.append([Paragraph("TOTAL GERAL", style_total_label), "", "", "", Paragraph(total_geral, style_total_valor)])
