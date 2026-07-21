@@ -602,7 +602,7 @@ async function abrirObra(id) {
 
 async function carregarSubviewObra(sub, obra) {
   if (sub === 'resumo') {
-    const pct_budget = obra.budget > 0 ? Math.min(obra.total_gasto/obra.budget*100,100) : 0;
+    const pct_budget = obra.budget > 0 ? Math.min(((obra.total_gasto+(obra.valor_terreno||0))/obra.budget*100),100) : 0;
     document.getElementById('subview-obra-resumo').innerHTML = `
       <div class="cards-grid">
         <div class="card-metric"><label>Budget total</label><div class="val">${brl(obra.budget)}</div></div>
@@ -1065,7 +1065,7 @@ async function carregarRelatorios() {
     ${obras.map(o=>{
       const mo=o.total_mao_obra||0, sv=o.total_servicos||0, mat=o.total_materiais||0, cf=o.total_custos_fixos||0;
       const total=mo+sv+mat+cf;
-      const pct=o.budget>0?Math.min(o.total_gasto/o.budget*100,100):0;
+      const pct=o.budget>0?Math.min(((o.total_gasto+(o.valor_terreno||0))/o.budget*100),100):0;
       const lucro=(o.valor_venda||0)-(o.total_gasto||0)-(o.valor_terreno||0)-(o.com_corretor?o.valor_corretor:0)-(o.imposto_venda||0);
       return `<div class="secao" style="margin-bottom:14px">
         <div class="secao-header"><h2>${o.nome}</h2>
