@@ -483,7 +483,7 @@ async function carregarDashboard() {
   // Alertas
   const alertas = [];
   obras.forEach(o => {
-    const pct = o.budget > 0 ? (o.total_gasto/o.budget*100) : 0;
+    const pct = o.budget > 0 ? ((o.total_gasto+(o.valor_terreno||0))/o.budget*100) : 0;
     if (pct >= 90) alertas.push({cor:'var(--vermelho)', borda:'var(--vermelho)', msg:`⚠️ ${o.nome}: budget acima de 90% (${pct.toFixed(1)}%)`});
     else if (pct >= 70) alertas.push({cor:'var(--ouro)', borda:'var(--ouro)', msg:`🔶 ${o.nome}: budget acima de 70% (${pct.toFixed(1)}%)`});
   });
@@ -498,7 +498,7 @@ async function carregarDashboard() {
       <i class="ti ti-building" aria-hidden="true"></i> Obras
     </div>
     ${obras.map(o => {
-      const pct = o.budget > 0 ? Math.min(o.total_gasto/o.budget*100,100) : 0;
+      const pct = o.budget > 0 ? Math.min(((o.total_gasto+(o.valor_terreno||0))/o.budget*100),100) : 0;
       const cor = pct > 90 ? 'var(--vermelho)' : pct > 70 ? 'var(--ouro)' : 'var(--verde)';
       return `<div style="background:var(--preto3);border:0.5px solid var(--cinza);border-radius:8px;padding:12px 14px;margin-bottom:8px;cursor:pointer" onclick="abrirObra(${o.id})">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -552,7 +552,7 @@ async function carregarObras() {
       <button class="btn-secondary" onclick="modalNovaObra()">+ Nova obra</button>
     </div>
     ${obras.map(o => {
-      const pct_budget = o.budget > 0 ? Math.min(o.total_gasto/o.budget*100,100) : 0;
+      const pct_budget = o.budget > 0 ? Math.min(((o.total_gasto+(o.valor_terreno||0))/o.budget*100),100) : 0;
       const cor = pct_budget > 90 ? 'vermelho' : 'verde';
       return `<div class="secao" style="margin-bottom:12px">
         <div class="secao-header">
