@@ -1761,7 +1761,19 @@ function getItensOrc() {
 
 function calcTotalOrc(itens) {
   return itens.reduce((s,it) => {
-    const v = parseFloat(String(it.valor).replace(/[^0-9,.-]/g,'').replace(',','.')) || 0;
+    let vStr = String(it.valor || '0').trim();
+    // Remove R$, espaços e outros caracteres
+    vStr = vStr.replace(/R\$\s*/g,'').trim();
+    // Se tem ponto como separador de milhar e vírgula como decimal: 1.200,00
+    if (vStr.includes(',') && vStr.includes('.')) {
+      vStr = vStr.replace(/\./g,'').replace(',','.');
+    } else if (vStr.includes(',')) {
+      // Pode ser decimal com vírgula: 1200,00
+      vStr = vStr.replace(',','.');
+    }
+    // Remove qualquer coisa que não seja número ou ponto
+    vStr = vStr.replace(/[^0-9.]/g,'');
+    const v = parseFloat(vStr) || 0;
     return s + v * (parseFloat(it.qtd) || 1);
   }, 0);
 }
