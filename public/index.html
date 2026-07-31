@@ -1206,6 +1206,7 @@ function modalNovaObra() {
       <div class="field"><label>Budget total (R$)</label><input id="m-budget" type="number" /></div>
       <div class="field"><label>Valor do terreno (R$)</label><input id="m-terreno" type="number" /></div>
     </div>
+    <div class="field"><label>Data de início</label><input id="m-inicio" type="date" /></div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
       <button class="btn-primary" onclick="salvarNovaObra()">Criar obra</button>
@@ -1222,7 +1223,7 @@ async function salvarNovaObra() {
     cno: document.getElementById('m-cno').value,
     budget: +document.getElementById('m-budget').value,
     valor_terreno: +document.getElementById('m-terreno').value,
-    data_inicio: document.getElementById('m-inicio').value,
+    data_inicio: document.getElementById('m-inicio')?.value || '',
   };
   if (!data.nome) return toast('Informe o nome da obra', true);
   await API('/obras', {method:'POST', body: data});
@@ -1274,7 +1275,7 @@ async function salvarEdicaoObra(id) {
     valor_venda: o.valor_venda, com_corretor: o.com_corretor,
     valor_corretor: o.valor_corretor, imposto_venda: o.imposto_venda,
     status: document.getElementById('m-status').value,
-    data_inicio: document.getElementById('m-inicio').value,
+    data_inicio: document.getElementById('m-inicio')?.value || '',
   };
   await API('/obras/' + id, {method:'PUT', body: data});
   fecharModal(); toast('Obra atualizada!');
