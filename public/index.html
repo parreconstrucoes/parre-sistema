@@ -913,6 +913,10 @@ async function carregarSubviewPrestacao(sub) {
               <span>Resultado líquido</span>
               <span id="resultado-liq" class="td-verde">${brl(res.resultado)}</span>
             </div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:13px">
+              <span style="color:var(--texto3)">Margem de lucro</span>
+              <span id="margem-lucro" class="td-ouro">${(res.margem_lucro||0).toFixed(1)}%</span>
+            </div>
           </div>
         </div>
         <div class="secao">
@@ -972,6 +976,9 @@ function recalcResumo(pct, fat, desp, prolabore) {
   const liq = fat - imp - desp - prolabore;
   document.getElementById('resultado-liq').textContent = brl(liq);
   document.getElementById('resultado-liq').className = liq >= 0 ? 'td-verde' : 'td-vermelho';
+  const margem = fat > 0 ? (liq / fat * 100) : 0;
+  document.getElementById('margem-lucro').textContent = margem.toFixed(1) + '%';
+  document.getElementById('margem-lucro').className = margem >= 0 ? 'td-ouro' : 'td-vermelho';
 }
 
 // FOLHA
