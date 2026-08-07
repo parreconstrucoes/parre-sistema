@@ -554,6 +554,10 @@ async function carregarObras() {
     ${obras.map(o => {
       const pct_budget = o.budget > 0 ? Math.min(((o.total_gasto+(o.valor_terreno||0))/o.budget*100),100) : 0;
       const cor = pct_budget > 90 ? 'vermelho' : 'verde';
+      const corretor_o = o.com_corretor ? (o.valor_corretor||0) : 0;
+      const cno_val_o = parseFloat(String(o.cno||'').replace(/[^\d.]/g,'')) || 0;
+      const lucro_o = (o.valor_venda||0) - (o.total_gasto||0) - (o.valor_terreno||0) - corretor_o - (o.imposto_venda||0) - cno_val_o;
+      const margem_o = o.valor_venda > 0 ? lucro_o/o.valor_venda*100 : 0;
       return `<div class="secao" style="margin-bottom:12px">
         <div class="secao-header">
           <div>
@@ -572,6 +576,7 @@ async function carregarObras() {
             <div class="card-metric vermelho"><label>Total gasto</label><div class="val" style="font-size:15px">${brl(o.total_gasto)}</div></div>
             <div class="card-metric verde"><label>Restante</label><div class="val" style="font-size:15px">${brl(o.budget_restante)}</div></div>
             <div class="card-metric"><label>Terreno</label><div class="val" style="font-size:15px">${brl(o.valor_terreno)}</div></div>
+            <div class="card-metric ${margem_o>=0?'verde':'vermelho'}"><label>Margem de lucro</label><div class="val" style="font-size:15px">${o.valor_venda>0?margem_o.toFixed(1)+'%':'—'}</div></div>
           </div>
           <div class="prog-wrap">
             <div class="prog-info"><span>Budget utilizado: ${pct_budget.toFixed(1)}%</span><span>${brl(o.total_gasto)} / ${brl(o.budget)}</span></div>
@@ -1055,6 +1060,7 @@ async function carregarRelatorios() {
   const totalLiqFolha = folha.reduce((s,r)=>s+(r.liquido||0),0);
   const totalDarf = darfs.reduce((s,d)=>s+(d.total||0),0);
   const resultadoPrestacao = fatRecebido - totalDesp - totalProlabore - totalDarf;
+  const margemPrestacao = fatRecebido > 0 ? resultadoPrestacao/fatRecebido*100 : 0;
 
   const bar = (val, max, cor='var(--ouro)') => {
     const pct = max>0 ? Math.min(val/max*100,100) : 0;
@@ -1074,9 +1080,10 @@ async function carregarRelatorios() {
       const total=mo+sv+mat+cf;
       const pct=o.budget>0?Math.min(((o.total_gasto+(o.valor_terreno||0))/o.budget*100),100):0;
       const lucro=(o.valor_venda||0)-(o.total_gasto||0)-(o.valor_terreno||0)-(o.com_corretor?o.valor_corretor:0)-(o.imposto_venda||0);
+      const margem_r = o.valor_venda>0 ? lucro/o.valor_venda*100 : 0;
       return `<div class="secao" style="margin-bottom:14px">
         <div class="secao-header"><h2>${o.nome}</h2>
-          <span style="font-size:12px;color:${lucro>=0?'var(--verde)':'var(--vermelho)'};font-weight:600">Resultado: ${brl(lucro)}</span>
+          <span style="font-size:12px;color:${lucro>=0?'var(--verde)':'var(--vermelho)'};font-weight:600">Resultado: ${brl(lucro)} ${o.valor_venda>0?'('+margem_r.toFixed(1)+'%)':''}</span>
         </div>
         <div class="secao-body">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
@@ -1107,6 +1114,9 @@ async function carregarRelatorios() {
                   </div>`).join('')}
                 <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;padding:8px 0 0">
                   <span>Lucro líquido</span><span class="${lucro>=0?'td-verde':'td-vermelho'}">${brl(lucro)}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0">
+                  <span style="color:var(--texto3)">Margem de lucro</span><span class="${margem_r>=0?'td-verde':'td-vermelho'}">${o.valor_venda>0?margem_r.toFixed(1)+'%':'—'}</span>
                 </div>
               </div>
             </div>
@@ -1150,6 +1160,9 @@ async function carregarRelatorios() {
               </div>`).join('')}
             <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:600;padding:10px 0 0;border-top:0.5px solid var(--ouro);margin-top:4px">
               <span>Resultado líquido</span><span class="${resultadoPrestacao>=0?'td-verde':'td-vermelho'}">${brl(resultadoPrestacao)}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0 0">
+              <span style="color:var(--texto2)">Margem de lucro</span><span class="${margemPrestacao>=0?'td-verde':'td-vermelho'}">${fatRecebido>0?margemPrestacao.toFixed(1)+'%':'—'}</span>
             </div>
           </div>
         </div>
