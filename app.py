@@ -396,13 +396,16 @@ def resumo_prestacao():
     inss = folha[1] if folha else 0
     liquido_folha = folha[2] if folha else 0
     conn.close()
+    resultado = faturamento - despesas - pro_labore
+    margem_lucro = (resultado / faturamento * 100) if faturamento > 0 else 0
     return jsonify({
         'faturamento_bruto': faturamento,
         'despesas_operacionais': despesas,
         'pro_labore_bruto': pro_labore,
         'inss': inss,
         'liquido_folha': liquido_folha,
-        'resultado': faturamento - despesas - pro_labore
+        'resultado': resultado,
+        'margem_lucro': margem_lucro
     })
 
 @app.route('/', defaults={'path': ''})
