@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 import sqlite3, hashlib, jwt, os, datetime, json
 
@@ -256,6 +256,13 @@ def login():
                         'exp': datetime.datetime.utcnow() + datetime.timedelta(days=30)},
                        SECRET, algorithm='HS256')
     return jsonify({'token': token, 'usuario': data['usuario']})
+
+# ============ BACKUP TEMPORÁRIO (remover depois) ============
+@app.route('/api/backup-temp-8834', methods=['GET'])
+def backup_temp():
+    if request.args.get('key') != 'parre-backup-2026-temp':
+        return jsonify({'error': 'unauthorized'}), 401
+    return send_file(DB_PATH, as_attachment=True, download_name='parre_backup.db')
 
 # ============ OBRAS ============
 @app.route('/api/obras', methods=['GET'])
