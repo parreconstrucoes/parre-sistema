@@ -257,13 +257,6 @@ def login():
                        SECRET, algorithm='HS256')
     return jsonify({'token': token, 'usuario': data['usuario']})
 
-# ============ BACKUP TEMPORÁRIO (remover depois) ============
-@app.route('/api/backup-temp-8834', methods=['GET'])
-def backup_temp():
-    if request.args.get('key') != 'parre-backup-2026-temp':
-        return jsonify({'error': 'unauthorized'}), 401
-    return send_file(DB_PATH, as_attachment=True, download_name='parre_backup.db')
-
 # ============ OBRAS ============
 @app.route('/api/obras', methods=['GET'])
 @token_required
