@@ -856,12 +856,26 @@ async function carregarSubviewPrestacao(sub) {
   }
 
   if (sub === 'despesas') {
-    const rows = await API('/despesas_prestacao');
+    const todasRows = await API('/despesas_prestacao');
+    const de = document.getElementById('filtro-desp-de')?.value || window._filtroDespDe || '';
+    const ate = document.getElementById('filtro-desp-ate')?.value || window._filtroDespAte || '';
+    window._filtroDespDe = de;
+    window._filtroDespAte = ate;
+    const rows = todasRows.filter(r => {
+      if (de && (!r.data || r.data < de)) return false;
+      if (ate && (!r.data || r.data > ate)) return false;
+      return true;
+    });
     const total = rows.reduce((s,r)=>s+(r.valor||0),0);
     const porTipo = {};
     rows.forEach(r => { if(!porTipo[r.tipo]) porTipo[r.tipo]=0; porTipo[r.tipo]+=r.valor||0; });
     document.getElementById('subview-prestacao-despesas').innerHTML = `
-      <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <div class="field" style="margin:0"><label>De</label><input type="date" id="filtro-desp-de" value="${de}" onchange="carregarSubviewPrestacao('despesas')" /></div>
+          <div class="field" style="margin:0"><label>Até</label><input type="date" id="filtro-desp-ate" value="${ate}" onchange="carregarSubviewPrestacao('despesas')" /></div>
+          ${(de||ate)?`<button class="btn-secondary" onclick="window._filtroDespDe='';window._filtroDespAte='';carregarSubviewPrestacao('despesas')">Limpar filtro</button>`:''}
+        </div>
         <button class="btn-secondary" onclick="modalAddDespesa()">+ Lançar despesa</button>
       </div>
       <div class="cards-grid" style="margin-bottom:14px">
@@ -879,7 +893,7 @@ async function carregarSubviewPrestacao(sub) {
             <td class="td-num td-ouro">${brl(r.valor)}</td>
             <td><span class="badge badge-verde">${r.status||'Lançado'}</span></td>
             <td><button class="btn-danger" onclick="excluirItem('despesas_prestacao',${r.id},()=>carregarSubviewPrestacao('despesas'))">×</button></td>
-          </tr>`).join('') || '<tr><td colspan="6" class="empty">Nenhuma despesa lançada</td></tr>'}
+          </tr>`).join('') || `<tr><td colspan="6" class="empty">${(de||ate)?'Nenhuma despesa no período selecionado':'Nenhuma despesa lançada'}</td></tr>`}
           ${rows.length>0?`<tr class="total-row"><td colspan="3">Total</td><td class="td-num">${brl(total)}</td><td colspan="2"></td></tr>`:''}
         </tbody>
       </table></div></div>`;
