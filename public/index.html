@@ -1041,7 +1041,7 @@ async function carregarSubviewFolha(sub) {
         <button class="btn-secondary" onclick="modalAddDarf()">+ Lançar DARF/GPS</button>
       </div>
       <div class="secao"><div class="tabela-wrap"><table>
-        <thead><tr><th>Tipo</th><th>Mês/Ano</th><th>Nº Documento</th><th>Vencimento</th><th class="td-num">Valor 1</th><th class="td-num">Valor 2</th><th class="td-num">Total</th><th>Pago</th><th></th></tr></thead>
+        <thead><tr><th>Tipo</th><th>Mês/Ano</th><th>Nº Documento</th><th>Vencimento</th><th class="td-num">Valor 1</th><th class="td-num">Valor 2</th><th class="td-num">Total</th><th>PDF</th><th>Pago</th><th></th></tr></thead>
         <tbody>
           ${rows.map(r=>`<tr>
             <td><span class="badge ${r.tipo==='PIS/COFINS'?'badge-azul':'badge-roxo'}">${r.tipo||'Pró-labore/INSS'}</span></td>
@@ -1051,9 +1051,10 @@ async function carregarSubviewFolha(sub) {
             <td class="td-num">${brl(r.codigo_1099)}</td>
             <td class="td-num">${brl(r.codigo_1138)}</td>
             <td class="td-num td-ouro">${brl(r.total)}</td>
+            <td>${r.link_pdf?`<a href="${r.link_pdf}" target="_blank" style="color:var(--azul);font-size:11px">Drive</a>`:'—'}</td>
             <td><span class="badge ${r.pago?'badge-verde':'badge-vermelho'}">${r.pago?'Pago':'Pendente'}</span></td>
             <td><button class="btn-danger" onclick="excluirItem('darfs',${r.id},()=>carregarSubviewFolha('darf'))">×</button></td>
-          </tr>`).join('') || '<tr><td colspan="9" class="empty">Nenhum DARF lançado</td></tr>'}
+          </tr>`).join('') || '<tr><td colspan="10" class="empty">Nenhum DARF lançado</td></tr>'}
         </tbody>
       </table></div></div>`;
   }
@@ -1708,6 +1709,7 @@ function modalAddDarf() {
       <div class="field"><label id="label-1138">Cód. 1138 — CP Patronal (R$)</label><input id="m-1138" type="number" value="648.40" oninput="calcDarf()" /></div>
     </div>
     <div class="field"><label>Total (R$)</label><input id="m-total" type="number" value="1005.02" readonly style="color:var(--ouro)" /></div>
+    <div class="field"><label>Link PDF (Google Drive)</label><input id="m-darf-pdf" type="text" placeholder="https://drive.google.com/..." /></div>
     <div class="field"><label>Status</label><select id="m-pago"><option value="0">Pendente</option><option value="1">Pago</option></select></div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
@@ -1749,6 +1751,7 @@ async function salvarDarf() {
     codigo_1099: c1099, codigo_1138: c1138,
     total: c1099 + c1138,
     pago: +document.getElementById('m-pago').value,
+    link_pdf: document.getElementById('m-darf-pdf').value,
   };
   await API('/darfs', {method:'POST', body: data});
   fecharModal(); toast('DARF salvo!'); carregarSubviewFolha('darf');
