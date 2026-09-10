@@ -187,10 +187,15 @@ def init_db():
         total REAL DEFAULT 0,
         pago INTEGER DEFAULT 0,
         data_pagamento TEXT,
+        link_pdf TEXT,
         criado_em TEXT DEFAULT CURRENT_TIMESTAMP
     )''')
     try:
         c.execute('ALTER TABLE darfs ADD COLUMN tipo TEXT DEFAULT "Pró-labore/INSS"')
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute('ALTER TABLE darfs ADD COLUMN link_pdf TEXT')
     except sqlite3.OperationalError:
         pass
 
@@ -374,7 +379,7 @@ make_crud('custos_fixos', ['obra_id','tipo','mes_ano','valor','comprovante','obs
 make_crud('orcamentos', ['cliente_id','numero_proposta','descricao','valor','status','numero_nf','link_pdf','data_aprovacao','data_execucao','data_recebimento','observacao'], obra_fk=False)
 make_crud('despesas_prestacao', ['cliente_id','tipo','descricao','valor','data','status','observacao'], obra_fk=False)
 make_crud('folha_pagamento', ['colaborador','funcao','mes_ano','pro_labore','inss_percentual','inss_valor','liquido','observacao'], obra_fk=False)
-make_crud('darfs', ['mes_ano','numero_documento','vencimento','tipo','codigo_1099','codigo_1138','total','pago','data_pagamento'], obra_fk=False)
+make_crud('darfs', ['mes_ano','numero_documento','vencimento','tipo','codigo_1099','codigo_1138','total','pago','data_pagamento','link_pdf'], obra_fk=False)
 make_crud('clientes', ['nome','cnpj_cpf','contato','email','observacao'], obra_fk=False)
 
 # ============ RESUMO FINANCEIRO PRESTAÇÃO ============
