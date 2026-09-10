@@ -1041,9 +1041,10 @@ async function carregarSubviewFolha(sub) {
         <button class="btn-secondary" onclick="modalAddDarf()">+ Lançar DARF/GPS</button>
       </div>
       <div class="secao"><div class="tabela-wrap"><table>
-        <thead><tr><th>Mês/Ano</th><th>Nº Documento</th><th>Vencimento</th><th class="td-num">Cód. 1099</th><th class="td-num">Cód. 1138</th><th class="td-num">Total</th><th>Pago</th><th></th></tr></thead>
+        <thead><tr><th>Tipo</th><th>Mês/Ano</th><th>Nº Documento</th><th>Vencimento</th><th class="td-num">Valor 1</th><th class="td-num">Valor 2</th><th class="td-num">Total</th><th>Pago</th><th></th></tr></thead>
         <tbody>
           ${rows.map(r=>`<tr>
+            <td><span class="badge ${r.tipo==='PIS/COFINS'?'badge-azul':'badge-roxo'}">${r.tipo||'Pró-labore/INSS'}</span></td>
             <td class="td-ouro">${r.mes_ano}</td>
             <td style="font-size:11px">${r.numero_documento||'—'}</td>
             <td>${r.vencimento||'—'}</td>
@@ -1052,7 +1053,7 @@ async function carregarSubviewFolha(sub) {
             <td class="td-num td-ouro">${brl(r.total)}</td>
             <td><span class="badge ${r.pago?'badge-verde':'badge-vermelho'}">${r.pago?'Pago':'Pendente'}</span></td>
             <td><button class="btn-danger" onclick="excluirItem('darfs',${r.id},()=>carregarSubviewFolha('darf'))">×</button></td>
-          </tr>`).join('') || '<tr><td colspan="8" class="empty">Nenhum DARF lançado</td></tr>'}
+          </tr>`).join('') || '<tr><td colspan="9" class="empty">Nenhum DARF lançado</td></tr>'}
         </tbody>
       </table></div></div>`;
   }
@@ -1691,14 +1692,20 @@ async function salvarFolha() {
 
 function modalAddDarf() {
   abrirModal(`<h2>Lançar DARF / GPS</h2>
+    <div class="field"><label>Tipo</label>
+      <select id="m-tipo-darf" onchange="mudarTipoDarf()">
+        <option value="Pró-labore/INSS">Pró-labore / INSS</option>
+        <option value="PIS/COFINS">PIS / COFINS</option>
+      </select>
+    </div>
     <div class="grid-2">
       <div class="field"><label>Mês/Ano</label><input id="m-mes" type="text" placeholder="Ex: 03/2026" /></div>
       <div class="field"><label>Nº do documento</label><input id="m-ndoc" type="text" placeholder="07.16.26104..." /></div>
     </div>
     <div class="field"><label>Vencimento</label><input id="m-venc" type="date" /></div>
     <div class="grid-2">
-      <div class="field"><label>Cód. 1099 — CP Segurados (R$)</label><input id="m-1099" type="number" value="356.62" oninput="calcDarf()" /></div>
-      <div class="field"><label>Cód. 1138 — CP Patronal (R$)</label><input id="m-1138" type="number" value="648.40" oninput="calcDarf()" /></div>
+      <div class="field"><label id="label-1099">Cód. 1099 — CP Segurados (R$)</label><input id="m-1099" type="number" value="356.62" oninput="calcDarf()" /></div>
+      <div class="field"><label id="label-1138">Cód. 1138 — CP Patronal (R$)</label><input id="m-1138" type="number" value="648.40" oninput="calcDarf()" /></div>
     </div>
     <div class="field"><label>Total (R$)</label><input id="m-total" type="number" value="1005.02" readonly style="color:var(--ouro)" /></div>
     <div class="field"><label>Status</label><select id="m-pago"><option value="0">Pendente</option><option value="1">Pago</option></select></div>
@@ -1706,6 +1713,24 @@ function modalAddDarf() {
       <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
       <button class="btn-primary" onclick="salvarDarf()">Salvar</button>
     </div>`);
+}
+
+function mudarTipoDarf() {
+  const tipo = document.getElementById('m-tipo-darf').value;
+  const lbl1 = document.getElementById('label-1099');
+  const lbl2 = document.getElementById('label-1138');
+  const v1 = document.getElementById('m-1099');
+  const v2 = document.getElementById('m-1138');
+  if (tipo === 'PIS/COFINS') {
+    lbl1.textContent = 'PIS (R$)';
+    lbl2.textContent = 'COFINS (R$)';
+    v1.value = 0; v2.value = 0;
+  } else {
+    lbl1.textContent = 'Cód. 1099 — CP Segurados (R$)';
+    lbl2.textContent = 'Cód. 1138 — CP Patronal (R$)';
+    v1.value = 356.62; v2.value = 648.40;
+  }
+  calcDarf();
 }
 
 function calcDarf() {
@@ -1720,6 +1745,7 @@ async function salvarDarf() {
     mes_ano: document.getElementById('m-mes').value,
     numero_documento: document.getElementById('m-ndoc').value,
     vencimento: document.getElementById('m-venc').value,
+    tipo: document.getElementById('m-tipo-darf').value,
     codigo_1099: c1099, codigo_1138: c1138,
     total: c1099 + c1138,
     pago: +document.getElementById('m-pago').value,
