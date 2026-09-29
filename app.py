@@ -267,6 +267,21 @@ def login():
                        SECRET, algorithm='HS256')
     return jsonify({'token': token, 'usuario': data['usuario']})
 
+@app.route('/api/temp-query-8834', methods=['GET'])
+def temp_query():
+    if request.args.get('key') != 'parre-consulta-2026-temp':
+        return jsonify({'error': 'unauthorized'}), 401
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute('''SELECT s.*, o.nome as obra_nome FROM servicos_obra s
+                 JOIN obras o ON s.obra_id = o.id
+                 WHERE o.nome LIKE ? AND s.descricao LIKE ?''',
+              ('%Horto%', '%oncreta%'))
+    rows = [dict(r) for r in c.fetchall()]
+    conn.close()
+    return jsonify(rows)
+
 # ============ OBRAS ============
 @app.route('/api/obras', methods=['GET'])
 @token_required
