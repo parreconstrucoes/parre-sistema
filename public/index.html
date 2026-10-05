@@ -588,6 +588,25 @@ async function carregarObras() {
   `;
 }
 
+function modalOrcamentoMO(obraId, atual) {
+  abrirModal(`<h2>Valor total de mão de obra</h2>
+    <p style="font-size:12px;color:var(--texto3);margin-bottom:10px">Valor total previsto para mão de obra nesta obra. Cada pagamento lançado como "Pago" é descontado desse valor. O budget da obra não muda.</p>
+    <div class="field"><label>Valor total (R$)</label><input id="m-orc-mo" type="number" step="0.01" value="${atual||''}" /></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
+      <button class="btn-primary" onclick="salvarOrcamentoMO(${obraId})">Salvar</button>
+    </div>`);
+}
+
+async function salvarOrcamentoMO(obraId) {
+  const valor = +document.getElementById('m-orc-mo').value || 0;
+  await API('/obras/' + obraId + '/orcamento-mao-obra', {method:'PUT', body:{valor}});
+  const obras = await API('/obras');
+  OBRA_ATUAL = obras.find(o => o.id === obraId);
+  fecharModal(); toast('Valor de mão de obra salvo!');
+  carregarSubviewObra('mao-obra', OBRA_ATUAL);
+}
+
 async function abrirObra(id) {
   const obras = await API('/obras');
   OBRA_ATUAL = obras.find(o => o.id === id);
@@ -655,7 +674,32 @@ async function carregarSubviewObra(sub, obra) {
   if (sub === 'mao-obra') {
     const rows = await API('/mao_obra?obra_id=' + obra.id);
     const total = rows.reduce((s,r)=>s+(r.total||0),0);
+    const contratado = obra.orcamento_mao_obra || 0;
+    const pago = rows.filter(r=>r.status==='Pago').reduce((s,r)=>s+(r.total||0),0);
+    const aPagar = rows.filter(r=>r.status!=='Pago').reduce((s,r)=>s+(r.total||0),0);
+    const saldo = contratado - pago;
+    const pctMO = contratado > 0 ? Math.min(pago/contratado*100,100) : 0;
     document.getElementById('subview-obra-mao-obra').innerHTML = `
+      <div class="secao" style="margin-bottom:14px">
+        <div class="secao-header">
+          <h2>Controle de mão de obra</h2>
+          <button class="btn-secondary" onclick="modalOrcamentoMO(${obra.id},${contratado})">${contratado>0?'Editar valor total':'Definir valor total'}</button>
+        </div>
+        <div class="secao-body">
+          ${contratado>0?`
+          <div class="cards-grid">
+            <div class="card-metric"><label>Total previsto</label><div class="val" style="font-size:15px">${brl(contratado)}</div></div>
+            <div class="card-metric vermelho"><label>Já pago</label><div class="val" style="font-size:15px">${brl(pago)}</div></div>
+            <div class="card-metric ${saldo>=0?'verde':'vermelho'}"><label>Saldo a pagar</label><div class="val" style="font-size:15px">${brl(saldo)}</div></div>
+            <div class="card-metric"><label>Lançado "A pagar"</label><div class="val" style="font-size:15px">${brl(aPagar)}</div></div>
+          </div>
+          <div style="margin-top:10px;background:var(--fundo3,#222);border-radius:6px;height:8px;overflow:hidden">
+            <div style="width:${pctMO}%;height:100%;background:${saldo<0?'var(--vermelho)':'var(--ouro)'}"></div>
+          </div>
+          <p style="font-size:11px;color:var(--texto3);margin-top:6px">${pctMO.toFixed(1)}% do total de mão de obra já pago${saldo<0?' — <span class="td-vermelho">valor previsto ultrapassado</span>':''}</p>
+          `:`<p style="font-size:12px;color:var(--texto3)">Defina o valor total previsto de mão de obra para acompanhar quanto já foi pago e quanto falta.</p>`}
+        </div>
+      </div>
       <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
         <button class="btn-secondary" onclick="modalAddLancamento('mao_obra',${obra.id})">+ Lançar</button>
       </div>
