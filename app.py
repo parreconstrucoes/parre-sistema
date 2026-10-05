@@ -52,6 +52,10 @@ def init_db():
         c.execute("ALTER TABLE obras ADD COLUMN data_inicio TEXT")
     except:
         pass
+    try:
+        c.execute("ALTER TABLE obras ADD COLUMN orcamento_mao_obra REAL DEFAULT 0")
+    except:
+        pass
 
     # Inserir obra atual
     c.execute("INSERT OR IGNORE INTO obras (id, nome, condominio, rua, quadra, lote, budget, valor_terreno, valor_venda, status) VALUES (1, 'Horto Florestal Villagio', 'Horto Florestal Villagio', 'Rua Alice Manrique Gabriel', 'A4', '09', 600000, 180000, 780000, 'Em andamento')")
@@ -267,21 +271,6 @@ def login():
                        SECRET, algorithm='HS256')
     return jsonify({'token': token, 'usuario': data['usuario']})
 
-@app.route('/api/temp-query-8834', methods=['GET'])
-def temp_query():
-    if request.args.get('key') != 'parre-consulta-2026-temp':
-        return jsonify({'error': 'unauthorized'}), 401
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute('''SELECT s.*, o.nome as obra_nome FROM servicos_obra s
-                 JOIN obras o ON s.obra_id = o.id
-                 WHERE o.nome LIKE ? AND s.descricao LIKE ?''',
-              ('%Horto%', '%oncreta%'))
-    rows = [dict(r) for r in c.fetchall()]
-    conn.close()
-    return jsonify(rows)
-
 # ============ OBRAS ============
 @app.route('/api/obras', methods=['GET'])
 @token_required
@@ -290,6 +279,7 @@ def get_obras():
     obras = rows_to_list(conn.execute("SELECT * FROM obras ORDER BY criado_em DESC").fetchall())
     for o in obras:
         o['total_mao_obra'] = conn.execute("SELECT COALESCE(SUM(total),0) FROM mao_obra WHERE obra_id=?", (o['id'],)).fetchone()[0]
+        o['mao_obra_paga'] = conn.execute("SELECT COALESCE(SUM(total),0) FROM mao_obra WHERE obra_id=? AND status='Pago'", (o['id'],)).fetchone()[0]
         o['total_servicos'] = conn.execute("SELECT COALESCE(SUM(total),0) FROM servicos_obra WHERE obra_id=?", (o['id'],)).fetchone()[0]
         o['total_materiais'] = conn.execute("SELECT COALESCE(SUM(total),0) FROM materiais WHERE obra_id=?", (o['id'],)).fetchone()[0]
         o['total_custos_fixos'] = conn.execute("SELECT COALESCE(SUM(valor),0) FROM custos_fixos WHERE obra_id=?", (o['id'],)).fetchone()[0]
@@ -325,6 +315,16 @@ def update_obra(id):
          d.get('cno',''),d.get('budget',0),d.get('valor_terreno',0),d.get('valor_venda',0),
          d.get('com_corretor',0),d.get('valor_corretor',0),d.get('imposto_venda',0),d.get('status','Em andamento'),
          d.get('data_inicio',''),id))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+@app.route('/api/obras/<int:id>/orcamento-mao-obra', methods=['PUT'])
+@token_required
+def update_orcamento_mao_obra(id):
+    d = request.json or {}
+    conn = get_db()
+    conn.execute("UPDATE obras SET orcamento_mao_obra=? WHERE id=?", (float(d.get('valor', 0) or 0), id))
     conn.commit()
     conn.close()
     return jsonify({'ok': True})
