@@ -2048,6 +2048,7 @@ function renderLancamentoRapido() {
       ${LR.tipo!=='custos_fixos'?`<div class="field"><label>Status</label><select id="lr-status"><option>Pago</option><option>A pagar</option></select></div>`:'<div></div>'}
     </div>
     <div class="modal-footer" style="flex-wrap:wrap">
+      <button class="btn-secondary" onclick="modalLoteTexto()">Vários de uma vez</button>
       <button class="btn-secondary" onclick="modalImportarPlanilha()" style="margin-right:auto">Importar planilha</button>
       <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
       <button class="btn-secondary" onclick="salvarLancamentoRapido(true)">Salvar e lançar outro</button>
@@ -2187,6 +2188,127 @@ async function confirmarImportacao() {
   if (!r || r.error) { btn.disabled = false; btn.textContent = 'Importar'; return toast('Erro: ' + (r?.error||'falha na importação'), true); }
   fecharModal(); toast(r.importados + ' lançamento(s) importados!');
   IMP_ITENS = [];
+  if (OBRA_ATUAL) { const obras = await API('/obras'); OBRA_ATUAL = obras.find(o=>o.id===OBRA_ATUAL.id); }
+}
+
+
+// ============ LANÇAMENTO EM LOTE POR TEXTO / VOZ ============
+const LOTE_PALAVRAS = [
+  ['mao de obra','mao_obra'],['mão de obra','mao_obra'],['mo','mao_obra'],
+  ['servicos','servicos_obra'],['serviços','servicos_obra'],['servico','servicos_obra'],['serviço','servicos_obra'],
+  ['materiais','materiais'],['material','materiais'],
+  ['custo fixo','custos_fixos'],['fixo','custos_fixos'],
+];
+let LOTE_ITENS = [];
+
+async function modalLoteTexto() {
+  if (!LR_OBRAS.length) LR_OBRAS = await API('/obras');
+  const obraSel = (LR.destino && LR.destino !== 'prestacao') ? LR.destino : String(LR_OBRAS[0]?.id||'');
+  abrirModal(`<h2>Vários lançamentos de uma vez</h2>
+    <p style="font-size:12px;color:var(--texto3);margin-bottom:10px">Um gasto por linha: <b>descrição e valor</b>. Pode digitar, colar do app Notas ou ditar pelo microfone do teclado.<br>
+    Comece a linha com <b>material</b>, <b>serviço</b>, <b>mão de obra</b> ou <b>custo fixo</b> para mudar o tipo só daquela linha. Uma data (ex: 03/11) na linha também é usada.</p>
+    <div class="grid-2">
+      <div class="field"><label>Obra</label><select id="lote-obra" onchange="previaLote()">${LR_OBRAS.map(o=>`<option value="${o.id}" ${String(o.id)===obraSel?'selected':''}>${o.nome}</option>`).join('')}</select></div>
+      <div class="field"><label>Tipo padrão</label><select id="lote-tipo" onchange="previaLote()">${LR_TIPOS.map(t=>`<option value="${t.id}" ${t.id===LR.tipo?'selected':''}>${t.nome}</option>`).join('')}</select></div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label>Data padrão</label><input id="lote-data" type="date" value="${hojeISO()}" onchange="previaLote()" /></div>
+      <div class="field"><label>Status</label><select id="lote-status" onchange="previaLote()"><option>Pago</option><option>A pagar</option></select></div>
+    </div>
+    <div class="field"><label>Gastos (um por linha)</label>
+      <textarea id="lote-texto" rows="7" style="width:100%;font-size:14px" placeholder="cimento 50 sacos 1890,50&#10;material areia 900&#10;serviço concretagem laje 8200&#10;pedreiro semana 1500" oninput="previaLote()"></textarea>
+    </div>
+    <div id="lote-previa"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="renderLancamentoRapido()">Voltar</button>
+      <button class="btn-primary" id="lote-salvar" onclick="salvarLote()" disabled>Lançar</button>
+    </div>`);
+  setTimeout(()=>document.getElementById('lote-texto')?.focus(), 50);
+}
+
+function loteParseValor(txt) {
+  // prioriza número após "R$"; senão, o último número da linha
+  const rs = txt.match(/R\$\s*([\d.,]+)/i);
+  let bruto = rs ? rs[1] : null, resto = txt;
+  if (!bruto) {
+    const nums = [...txt.matchAll(/\d[\d.,]*/g)];
+    if (!nums.length) return null;
+    const ult = nums[nums.length-1];
+    bruto = ult[0];
+    resto = txt.slice(0, ult.index) + txt.slice(ult.index + ult[0].length);
+  } else {
+    resto = txt.replace(rs[0], '');
+  }
+  bruto = bruto.replace(/[.,]$/, '');
+  let v;
+  if (/,\d{1,2}$/.test(bruto)) v = parseFloat(bruto.replace(/\./g,'').replace(',','.'));
+  else if (/\.\d{1,2}$/.test(bruto) && (bruto.match(/\./g)||[]).length === 1) v = parseFloat(bruto);
+  else v = parseFloat(bruto.replace(/[.,]/g,''));
+  return { valor: v, resto };
+}
+
+function previaLote() {
+  const obra_id = +document.getElementById('lote-obra').value;
+  const tipoPadrao = document.getElementById('lote-tipo').value;
+  const dataPadrao = document.getElementById('lote-data').value;
+  const status = document.getElementById('lote-status').value;
+  const ano = (dataPadrao || hojeISO()).slice(0,4);
+  const linhas = document.getElementById('lote-texto').value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  LOTE_ITENS = [];
+  let erros = 0;
+  linhas.forEach(linha => {
+    let txt = ' ' + linha + ' ';
+    let tipo = tipoPadrao;
+    const inicio = impSemAcento(linha);
+    for (const [pal, t] of LOTE_PALAVRAS) {
+      const p = impSemAcento(pal);
+      if (inicio === p || inicio.startsWith(p + ' ') || inicio.startsWith(p + ':') || inicio.startsWith(p + ' -')) {
+        tipo = t; txt = ' ' + linha.slice(pal.length).replace(/^\s*[:\-]\s*/, ' ') + ' '; break;
+      }
+    }
+    let data = dataPadrao;
+    const md = txt.match(/\s(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s/);
+    if (md) {
+      const a = md[3] ? (md[3].length===2 ? '20'+md[3] : md[3]) : ano;
+      data = `${a}-${md[2].padStart(2,'0')}-${md[1].padStart(2,'0')}`;
+      txt = txt.replace(md[0], ' ');
+    }
+    txt = txt.replace(/\breais\b|\breal\b/gi, ' ');
+    const pv = loteParseValor(txt);
+    const valor = pv ? pv.valor : NaN;
+    const descricao = (pv ? pv.resto : txt).replace(/\s+/g,' ').replace(/^[\s\-:,]+|[\s\-:,]+$/g,'');
+    const problemas = [];
+    if (!(valor > 0)) problemas.push('valor não encontrado');
+    if (!descricao) problemas.push('sem descrição');
+    if (problemas.length) erros++;
+    LOTE_ITENS.push({ obra_id, tipo, descricao: descricao.charAt(0).toUpperCase()+descricao.slice(1), valor, data, status,
+      categoria: tipo==='materiais' ? 'Diversos' : (tipo==='custos_fixos' ? descricao : ''), observacao: 'Lançado em lote', linha, problemas });
+  });
+  const ok = LOTE_ITENS.filter(x=>!x.problemas.length);
+  const total = ok.reduce((s,x)=>s+x.valor,0);
+  document.getElementById('lote-previa').innerHTML = linhas.length ? `
+    <p style="font-size:12px;margin:6px 0">${ok.length} lançamento(s) — total <b class="td-ouro">${brl(total)}</b>${erros?` · <span class="imp-erro">${erros} linha(s) com problema</span>`:''}</p>
+    <div class="tabela-wrap" style="max-height:220px;overflow:auto"><table>
+      <thead><tr><th>Tipo</th><th>Descrição</th><th>Data</th><th class="td-num">Valor</th></tr></thead>
+      <tbody>${LOTE_ITENS.map(x=>`<tr>
+        <td>${IMP_TIPO_NOME[x.tipo]}</td>
+        <td>${x.problemas.length?`<span style="color:var(--texto3)">${x.linha}</span><div class="imp-erro">${x.problemas.join(', ')}</div>`:x.descricao}</td>
+        <td>${x.data ? x.data.slice(8,10)+'/'+x.data.slice(5,7) : '—'}</td>
+        <td class="td-num">${x.valor>0?brl(x.valor):'—'}</td></tr>`).join('')}</tbody>
+    </table></div>` : '';
+  const btn = document.getElementById('lote-salvar');
+  btn.disabled = !ok.length || !!erros;
+  btn.textContent = ok.length ? `Lançar ${ok.length} (${brl(total)})` : 'Lançar';
+}
+
+async function salvarLote() {
+  const btn = document.getElementById('lote-salvar');
+  btn.disabled = true; btn.textContent = 'Lançando...';
+  const r = await API('/importar-lancamentos', {method:'POST', body:{ itens: LOTE_ITENS }});
+  if (!r || r.error) { btn.disabled = false; btn.textContent = 'Lançar'; return toast('Erro: ' + (r?.error||'falha ao lançar'), true); }
+  lsSet('parre_lr_obra', String(LOTE_ITENS[0].obra_id));
+  fecharModal(); toast(r.importados + ' lançamento(s) salvos!');
+  LOTE_ITENS = [];
   if (OBRA_ATUAL) { const obras = await API('/obras'); OBRA_ATUAL = obras.find(o=>o.id===OBRA_ATUAL.id); }
 }
 
