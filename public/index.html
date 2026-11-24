@@ -179,9 +179,15 @@ tr:hover td { background: rgba(201,168,76,0.04); }
   .cards-grid { grid-template-columns: 1fr 1fr; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .cats-grid { grid-template-columns: repeat(2,1fr); }
-  .fab { display: flex !important; }
+  body.logado .fab { bottom: 70px; right: 16px; }
 }
 .fab { display: none; position: fixed; bottom: 70px; right: 16px; width: 52px; height: 52px; border-radius: 50%; background: var(--ouro); color: var(--preto); border: none; font-size: 24px; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(201,168,76,0.4); z-index: 150; cursor: pointer; }
+body.logado .fab { display: flex; bottom: 24px; right: 24px; }
+.lr-escolha { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.lr-escolha button { padding: 12px 8px; background: var(--preto2); border: 0.5px solid var(--cinza2); border-radius: 8px; color: var(--texto2); font-size: 12px; cursor: pointer; }
+.lr-escolha button.active { border-color: var(--ouro); color: var(--ouro); background: var(--ouro-bg); }
+.lr-valor { font-size: 22px !important; text-align: right; }
+.imp-erro { color: var(--vermelho); font-size: 11px; }
 
 .view { display: none; }
 .view.ativa { display: block; }
@@ -368,7 +374,7 @@ tr:hover td { background: rgba(201,168,76,0.04); }
 </div>
 
 <div class="toast" id="toast"></div>
-<button class="fab" onclick="modalAddDespesa()" title="Lançar despesa rápida">+</button>
+<button class="fab" onclick="abrirLancamentoRapido()" title="Lançamento rápido">+</button>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
 
@@ -404,6 +410,7 @@ async function fazerLogin() {
   if (r.token) {
     TOKEN = r.token;
     localStorage.setItem('parre_token', TOKEN);
+    document.body.classList.add('logado');
     document.getElementById('login-page').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
     carregarDashboard();
@@ -414,6 +421,7 @@ async function fazerLogin() {
 
 function sair() {
   localStorage.removeItem('parre_token');
+  document.body.classList.remove('logado');
   TOKEN = '';
   document.getElementById('login-page').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
@@ -1996,9 +2004,196 @@ async function gerarOrcamentoPDF() {
   } catch(e) { toast('Erro: ' + e.message, true); }
 }
 
+
+// ============ LANÇAMENTO RÁPIDO ============
+const LR_TIPOS = [
+  {id:'mao_obra', nome:'Mão de obra'},
+  {id:'servicos_obra', nome:'Serviço'},
+  {id:'materiais', nome:'Material'},
+  {id:'custos_fixos', nome:'Custo fixo'},
+];
+const LR_CATS_MAT = ['Elétrico','Hidráulico','Estrutural','Acabamento','Ferragens','Pintura','Cimento','Ferro / Arame','Madeira','Alvenaria','EPI / Ferramentas','Cobertura','Piscina','Piso','Diversos','Outros'];
+let LR = { destino: null, tipo: 'mao_obra' };
+let LR_OBRAS = [];
+const lsGet = k => { try { return localStorage.getItem(k); } catch(e) { return null; } };
+const lsSet = (k,v) => { try { localStorage.setItem(k,v); } catch(e) {} };
+const hojeISO = () => { const d = new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
+
+async function abrirLancamentoRapido() {
+  LR_OBRAS = await API('/obras');
+  const ultima = +lsGet('parre_lr_obra') || 0;
+  LR.destino = LR_OBRAS.some(o=>o.id===ultima) ? String(ultima) : (LR_OBRAS[0] ? String(LR_OBRAS[0].id) : 'prestacao');
+  LR.tipo = lsGet('parre_lr_tipo') || 'mao_obra';
+  renderLancamentoRapido();
+}
+
+function renderLancamentoRapido() {
+  if (LR.destino === 'prestacao') { fecharModal(); return modalAddDespesa(); }
+  abrirModal(`<h2>Lançamento rápido</h2>
+    <div class="field"><label>Onde</label>
+      <select id="lr-destino" onchange="LR.destino=this.value;renderLancamentoRapido()">
+        ${LR_OBRAS.map(o=>`<option value="${o.id}" ${String(o.id)===LR.destino?'selected':''}>${o.nome}</option>`).join('')}
+        <option value="prestacao">Prestação de serviço (despesa operacional)</option>
+      </select>
+    </div>
+    <div class="lr-escolha">
+      ${LR_TIPOS.map(t=>`<button type="button" class="${t.id===LR.tipo?'active':''}" onclick="LR.tipo='${t.id}';renderLancamentoRapido()">${t.nome}</button>`).join('')}
+    </div>
+    ${LR.tipo==='materiais'?`<div class="field"><label>Categoria</label><select id="lr-cat">${LR_CATS_MAT.map(c=>`<option ${c===(lsGet('parre_lr_cat')||'Diversos')?'selected':''}>${c}</option>`).join('')}</select></div>`:''}
+    ${LR.tipo==='custos_fixos'?`<div class="field"><label>Tipo de custo</label><select id="lr-cat"><option>Água</option><option>Energia</option><option>Condomínio</option><option>Contabilidade</option><option>Outros</option></select></div>`:''}
+    <div class="field"><label>Valor (R$)</label><input id="lr-valor" class="lr-valor" type="number" inputmode="decimal" step="0.01" placeholder="0,00" /></div>
+    <div class="field"><label>Descrição</label><input id="lr-desc" type="text" placeholder="${LR.tipo==='mao_obra'?'Ex: Pedreiro — semana':LR.tipo==='materiais'?'Ex: 10 sacos de cimento':'Ex: Concretagem laje'}" /></div>
+    <div class="grid-2">
+      <div class="field"><label>Data</label><input id="lr-data" type="date" value="${hojeISO()}" /></div>
+      ${LR.tipo!=='custos_fixos'?`<div class="field"><label>Status</label><select id="lr-status"><option>Pago</option><option>A pagar</option></select></div>`:'<div></div>'}
+    </div>
+    <div class="modal-footer" style="flex-wrap:wrap">
+      <button class="btn-secondary" onclick="modalImportarPlanilha()" style="margin-right:auto">Importar planilha</button>
+      <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
+      <button class="btn-secondary" onclick="salvarLancamentoRapido(true)">Salvar e lançar outro</button>
+      <button class="btn-primary" onclick="salvarLancamentoRapido(false)">Salvar</button>
+    </div>`);
+  setTimeout(()=>document.getElementById('lr-valor')?.focus(), 50);
+}
+
+async function salvarLancamentoRapido(outro) {
+  const valor = +document.getElementById('lr-valor').value;
+  if (!(valor > 0)) return toast('Informe o valor', true);
+  const obra_id = +LR.destino;
+  const desc = document.getElementById('lr-desc').value.trim();
+  const data = document.getElementById('lr-data').value;
+  const catEl = document.getElementById('lr-cat');
+  const statusEl = document.getElementById('lr-status');
+  let body, rota = '/' + LR.tipo;
+  if (LR.tipo === 'custos_fixos') {
+    body = { obra_id, tipo: catEl.value, mes_ano: data ? data.slice(5,7)+'/'+data.slice(0,4) : '', valor, observacao: desc };
+  } else {
+    if (!desc) return toast('Informe a descrição', true);
+    body = { obra_id, descricao: desc, quantidade: 1, valor_unit: valor, data, status: statusEl.value, observacao: '' };
+    if (LR.tipo === 'materiais') { body.categoria = catEl.value; lsSet('parre_lr_cat', catEl.value); }
+  }
+  const r = await API(rota, {method:'POST', body});
+  if (!r || r.error) return toast('Erro ao salvar: ' + (r?.error||''), true);
+  lsSet('parre_lr_obra', String(obra_id)); lsSet('parre_lr_tipo', LR.tipo);
+  toast('Lançado: ' + brl(valor));
+  if (OBRA_ATUAL && OBRA_ATUAL.id === obra_id) {
+    const obras = await API('/obras'); OBRA_ATUAL = obras.find(o=>o.id===obra_id);
+  }
+  if (outro) renderLancamentoRapido(); else fecharModal();
+}
+
+// ============ IMPORTAR PLANILHA ============
+let IMP_ITENS = [];
+const IMP_TIPO_MAP = {
+  'mao de obra':'mao_obra','mão de obra':'mao_obra','mo':'mao_obra',
+  'servico':'servicos_obra','serviço':'servicos_obra','servicos':'servicos_obra','serviços':'servicos_obra',
+  'material':'materiais','materiais':'materiais',
+  'custo fixo':'custos_fixos','custos fixos':'custos_fixos',
+};
+const IMP_TIPO_NOME = {mao_obra:'Mão de obra', servicos_obra:'Serviço', materiais:'Material', custos_fixos:'Custo fixo'};
+
+function modalImportarPlanilha() {
+  abrirModal(`<h2>Importar planilha de gastos</h2>
+    <p style="font-size:12px;color:var(--texto3);margin-bottom:10px">Use um arquivo CSV (no Excel: <b>Salvar como → CSV</b>) com as colunas:<br>
+    <b>obra; tipo; descricao; valor; data; categoria; status</b><br>
+    Tipo: Mão de obra, Serviço, Material ou Custo fixo. Data: dd/mm/aaaa. Categoria e status são opcionais (status padrão: Pago).</p>
+    <button class="btn-secondary" onclick="baixarModeloPlanilha()" style="margin-bottom:12px">Baixar modelo</button>
+    <div class="field"><label>Arquivo CSV</label><input id="imp-arquivo" type="file" accept=".csv,text/csv" onchange="lerPlanilha(this.files[0])" /></div>
+    <div id="imp-previa"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="fecharModal()">Cancelar</button>
+      <button class="btn-primary" id="imp-confirmar" onclick="confirmarImportacao()" disabled>Importar</button>
+    </div>`);
+}
+
+function baixarModeloPlanilha() {
+  const nome = (LR_OBRAS[0]?.nome) || 'Horto Florestal Villagio';
+  const csv = '﻿obra;tipo;descricao;valor;data;categoria;status\n' +
+    `${nome};Mão de obra;Pedreiro - semana;1500,00;03/11/2026;;Pago\n` +
+    `${nome};Material;Cimento 50 sacos;1890,50;04/11/2026;Cimento;Pago\n` +
+    `${nome};Serviço;Concretagem laje;8200,00;05/11/2026;;A pagar\n`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+  a.download = 'modelo_lancamentos_parre.csv'; a.click();
+}
+
+function impNumero(v) {
+  v = String(v||'').replace(/[R$\s]/g,'');
+  if (v.includes(',')) v = v.replace(/\./g,'').replace(',', '.');
+  return parseFloat(v);
+}
+function impData(v) {
+  v = String(v||'').trim();
+  let m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (m) { const a = m[3].length===2 ? '20'+m[3] : m[3]; return `${a}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  return null;
+}
+function impSemAcento(s) { return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim(); }
+
+async function lerPlanilha(arquivo) {
+  if (!arquivo) return;
+  if (!LR_OBRAS.length) LR_OBRAS = await API('/obras');
+  let texto = await arquivo.text();
+  texto = texto.replace(/^﻿/, '');
+  const linhas = texto.split(/\r?\n/).filter(l => l.trim());
+  const sep = (linhas[0].split(';').length >= linhas[0].split(',').length) ? ';' : ',';
+  const cab = linhas[0].split(sep).map(impSemAcento);
+  const col = n => cab.indexOf(n);
+  const faltando = ['obra','tipo','descricao','valor'].filter(c => col(c) < 0);
+  if (faltando.length) {
+    document.getElementById('imp-previa').innerHTML = `<p class="imp-erro">Colunas não encontradas: ${faltando.join(', ')}. Use o modelo.</p>`;
+    return;
+  }
+  IMP_ITENS = [];
+  let erros = 0;
+  linhas.slice(1).forEach((l, i) => {
+    const c = l.split(sep).map(x => x.trim().replace(/^"|"$/g,''));
+    const get = n => col(n) >= 0 ? (c[col(n)]||'') : '';
+    const nomeObra = impSemAcento(get('obra'));
+    const obra = LR_OBRAS.find(o => impSemAcento(o.nome) === nomeObra) || LR_OBRAS.find(o => impSemAcento(o.nome).includes(nomeObra) && nomeObra);
+    const tipo = IMP_TIPO_MAP[impSemAcento(get('tipo'))] || IMP_TIPO_MAP[get('tipo').toLowerCase().trim()];
+    const valor = impNumero(get('valor'));
+    const dataTxt = get('data');
+    const data = dataTxt ? impData(dataTxt) : '';
+    const problemas = [];
+    if (!obra) problemas.push('obra não encontrada');
+    if (!tipo) problemas.push('tipo inválido');
+    if (!(valor > 0)) problemas.push('valor inválido');
+    if (data === null) problemas.push('data inválida');
+    if (problemas.length) erros++;
+    IMP_ITENS.push({ linha: i+2, obra_id: obra?.id, obra_nome: obra?.nome || get('obra'), tipo, descricao: get('descricao'), valor, data: data||'',
+      categoria: get('categoria'), status: get('status') || 'Pago', problemas });
+  });
+  const validos = IMP_ITENS.filter(x => !x.problemas.length);
+  const total = validos.reduce((s,x)=>s+x.valor,0);
+  document.getElementById('imp-previa').innerHTML = `
+    <p style="font-size:12px;margin:8px 0">${validos.length} lançamento(s) prontos — total <b class="td-ouro">${brl(total)}</b>${erros?` · <span class="imp-erro">${erros} linha(s) com erro</span>`:''}</p>
+    <div class="tabela-wrap" style="max-height:260px;overflow:auto"><table>
+      <thead><tr><th>Linha</th><th>Obra</th><th>Tipo</th><th>Descrição</th><th>Data</th><th class="td-num">Valor</th></tr></thead>
+      <tbody>${IMP_ITENS.map(x=>`<tr>
+        <td>${x.linha}</td><td>${x.obra_nome}</td><td>${IMP_TIPO_NOME[x.tipo]||'—'}</td>
+        <td>${x.descricao}${x.problemas.length?`<div class="imp-erro">${x.problemas.join(', ')}</div>`:''}</td>
+        <td>${x.data||'—'}</td><td class="td-num">${isNaN(x.valor)?'—':brl(x.valor)}</td></tr>`).join('')}</tbody>
+    </table></div>
+    ${erros?'<p class="imp-erro" style="margin-top:6px">Corrija as linhas com erro e selecione o arquivo de novo — nada é importado enquanto houver erro.</p>':''}`;
+  document.getElementById('imp-confirmar').disabled = !!erros || !validos.length;
+}
+
+async function confirmarImportacao() {
+  const btn = document.getElementById('imp-confirmar');
+  btn.disabled = true; btn.textContent = 'Importando...';
+  const r = await API('/importar-lancamentos', {method:'POST', body:{ itens: IMP_ITENS }});
+  if (!r || r.error) { btn.disabled = false; btn.textContent = 'Importar'; return toast('Erro: ' + (r?.error||'falha na importação'), true); }
+  fecharModal(); toast(r.importados + ' lançamento(s) importados!');
+  IMP_ITENS = [];
+  if (OBRA_ATUAL) { const obras = await API('/obras'); OBRA_ATUAL = obras.find(o=>o.id===OBRA_ATUAL.id); }
+}
+
 // INIT
 window.onload = () => {
   if (TOKEN) {
+    document.body.classList.add('logado');
     document.getElementById('login-page').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
     carregarDashboard();

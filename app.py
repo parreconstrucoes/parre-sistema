@@ -329,6 +329,47 @@ def update_orcamento_mao_obra(id):
     conn.close()
     return jsonify({'ok': True})
 
+@app.route('/api/importar-lancamentos', methods=['POST'])
+@token_required
+def importar_lancamentos():
+    """Importa varios lancamentos de uma vez (tudo ou nada)."""
+    itens = (request.json or {}).get('itens', [])
+    if not itens:
+        return jsonify({'error': 'Nenhum lancamento enviado'}), 400
+    conn = get_db()
+    obras_ids = {r[0] for r in conn.execute("SELECT id FROM obras").fetchall()}
+    try:
+        for i, it in enumerate(itens, 1):
+            obra_id = int(it.get('obra_id') or 0)
+            if obra_id not in obras_ids:
+                raise ValueError(f'Linha {i}: obra nao encontrada')
+            tipo = it.get('tipo')
+            valor = float(it.get('valor') or 0)
+            desc = (it.get('descricao') or '').strip() or '(sem descricao)'
+            data = it.get('data') or ''
+            obs = it.get('observacao') or 'Importado'
+            if tipo in ('mao_obra', 'servicos_obra'):
+                conn.execute(f"INSERT INTO {tipo} (obra_id,descricao,quantidade,valor_unit,status,data,observacao) VALUES (?,?,1,?,?,?,?)",
+                             (obra_id, desc, valor, it.get('status') or 'Pago', data, obs))
+            elif tipo == 'materiais':
+                conn.execute("INSERT INTO materiais (obra_id,categoria,descricao,quantidade,valor_unit,status,data,observacao) VALUES (?,?,?,1,?,?,?,?)",
+                             (obra_id, it.get('categoria') or 'Diversos', desc, valor, it.get('status') or 'Pago', data, obs))
+            elif tipo == 'custos_fixos':
+                mes_ano = ''
+                if len(data) >= 7:
+                    mes_ano = f"{data[5:7]}/{data[0:4]}"
+                conn.execute("INSERT INTO custos_fixos (obra_id,tipo,mes_ano,valor,observacao) VALUES (?,?,?,?,?)",
+                             (obra_id, it.get('categoria') or desc, mes_ano, valor, obs))
+            else:
+                raise ValueError(f'Linha {i}: tipo invalido')
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify({'error': str(e)}), 400
+    conn.close()
+    return jsonify({'ok': True, 'importados': len(itens)})
+
 @app.route('/api/obras/<int:id>', methods=['DELETE'])
 @token_required
 def delete_obra(id):
