@@ -3,6 +3,17 @@ from flask_cors import CORS
 import sqlite3, hashlib, jwt, os, datetime, json
 
 app = Flask(__name__, static_folder='public', static_url_path='')
+
+@app.after_request
+def sem_cache(resp):
+    # Evita que navegador/atalho do celular guardem versoes antigas do sistema
+    if request.path.startswith('/api/'):
+        resp.headers['Cache-Control'] = 'no-store'
+    elif resp.mimetype == 'text/html' or request.path in ('/', '/index.html'):
+        resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.headers['Expires'] = '0'
+    return resp
 CORS(app, resources={r'/api/*': {'origins': '*'}}, supports_credentials=True)
 SECRET = 'parre_secret_2026'
 DB_PATH = os.environ.get('DB_PATH', 'db/parre.db')
